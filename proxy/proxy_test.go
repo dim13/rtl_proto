@@ -5,12 +5,15 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/dim13/r82xx/tuner"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/dim13/rtl_proto/remote"
@@ -21,6 +24,12 @@ import (
 // session runs a remote over bufconn and a proxy on a pipe, and
 // returns the client end of the pipe with the greeting already read.
 func session(t *testing.T, dev *fake.Device, opts Options) (net.Conn, <-chan error) {
+	t.Helper()
+	return sessionWith(t, dev, opts, nil)
+}
+
+// sessionWith lets wrap intercept the proxy's calls to the remote.
+func sessionWith(t *testing.T, dev *fake.Device, opts Options, wrap func(pb.ReceiverClient) pb.ReceiverClient) (net.Conn, <-chan error) {
 	t.Helper()
 	lis := bufconn.Listen(1 << 20)
 	s := grpc.NewServer(grpc.InitialWindowSize(remote.Window), grpc.InitialConnWindowSize(remote.Window))
@@ -44,8 +53,12 @@ func session(t *testing.T, dev *fake.Device, opts Options) (net.Conn, <-chan err
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	done := make(chan error, 1)
+	rc := pb.NewReceiverClient(cc)
+	if wrap != nil {
+		rc = wrap(rc)
+	}
 	go func() {
-		done <- New(pb.NewReceiverClient(cc), opts).Serve(ctx, server)
+		done <- New(rc, opts).Serve(ctx, server)
 	}()
 	return client, done
 }
@@ -186,5 +199,93 @@ func TestReconnect(t *testing.T) {
 	case err := <-done:
 		t.Fatalf("Serve returned: %v", err)
 	default:
+	}
+}
+
+// flaky fails the listed Configure calls (1-based) with Unavailable.
+type flaky struct {
+	pb.ReceiverClient
+	n    atomic.Int32
+	fail map[int32]bool
+}
+
+func (f *flaky) Configure(ctx context.Context, in *pb.Settings, opts ...grpc.CallOption) (*pb.Settings, error) {
+	if f.fail[f.n.Add(1)] {
+		return nil, status.Error(codes.Unavailable, "flaky")
+	}
+	return f.ReceiverClient.Configure(ctx, in, opts...)
+}
+
+func count(calls []string, name string) int {
+	var n int
+	for _, c := range calls {
+		if c == name {
+			n++
+		}
+	}
+	return n
+}
+
+// readFrames reads n frames worth of samples, enough to span a reconnect.
+func readFrames(t *testing.T, c net.Conn, n int) {
+	t.Helper()
+	if _, err := io.ReadFull(c, make([]byte, n*remote.FrameBytes)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGainRounded(t *testing.T) {
+	dev := &fake.Device{Pace: time.Millisecond}
+	c, _ := session(t, dev, Options{})
+	readGreeting(t, c)
+	drain(c)
+	send(t, c, 0x04, 200)
+	eventually(t, func() bool { return dev.Snapshot().Gain == 197 })
+}
+
+// Re-applying after a reconnect must not turn auto gain into manual.
+func TestReapplyKeepsAutoGain(t *testing.T) {
+	dev := &fake.Device{FailAfter: 50, Pace: time.Millisecond}
+	c, _ := session(t, dev, Options{Backoff: 10 * time.Millisecond})
+	readGreeting(t, c)
+	send(t, c, 0x03, 1)
+	send(t, c, 0x04, 197)
+	send(t, c, 0x03, 0)
+	eventually(t, func() bool { return count(dev.Snapshot().Calls, "SetGainAuto") == 1 })
+	readFrames(t, c, 100)
+	if st := dev.Snapshot(); count(st.Calls, "SetGainAuto") != 2 || st.Manual {
+		t.Errorf("after re-apply: manual %v, calls %v", st.Manual, st.Calls)
+	}
+}
+
+// A re-apply that fails while the remote is still down is retried
+// before streaming resumes.
+func TestReapplyRetries(t *testing.T) {
+	dev := &fake.Device{FailAfter: 50, Pace: time.Millisecond}
+	c, _ := sessionWith(t, dev, Options{Backoff: 10 * time.Millisecond}, func(rc pb.ReceiverClient) pb.ReceiverClient {
+		return &flaky{ReceiverClient: rc, fail: map[int32]bool{2: true}}
+	})
+	readGreeting(t, c)
+	send(t, c, 0x01, 100_000_000)
+	eventually(t, func() bool { return dev.Snapshot().Freq == 100e6 })
+	readFrames(t, c, 100)
+	if got := count(dev.Snapshot().Calls, "SetFrequency"); got != 2 {
+		t.Errorf("SetFrequency calls: got %d, want 2", got)
+	}
+}
+
+// A command that fails because the remote is unreachable is still what
+// the client wants: it is applied after the reconnect.
+func TestCommandDuringOutage(t *testing.T) {
+	dev := &fake.Device{FailAfter: 50, Pace: time.Millisecond}
+	c, _ := sessionWith(t, dev, Options{Backoff: 10 * time.Millisecond}, func(rc pb.ReceiverClient) pb.ReceiverClient {
+		return &flaky{ReceiverClient: rc, fail: map[int32]bool{2: true}}
+	})
+	readGreeting(t, c)
+	send(t, c, 0x01, 100_000_000)
+	send(t, c, 0x01, 101_000_000)
+	readFrames(t, c, 100)
+	if got := dev.Snapshot().Freq; got != 101e6 {
+		t.Errorf("freq after reconnect: got %v, want 101e6", got)
 	}
 }

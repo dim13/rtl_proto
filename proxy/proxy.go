@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/dim13/rtl_proto/codec"
@@ -150,14 +152,80 @@ func (p *Proxy) commands(ctx context.Context, conn net.Conn, gains []int32) {
 		if s == nil {
 			continue
 		}
-		if _, err := p.c.Configure(ctx, s); err != nil {
+		if err := p.configure(ctx, s); err != nil {
 			slog.Warn("command", "cmd", c, "arg", arg, "err", err)
-			continue
 		}
-		p.mu.Lock()
-		proto.Merge(p.last, s)
-		p.mu.Unlock()
 	}
+}
+
+// configure sends s and records it as wanted state for re-applying
+// after a reconnect, also when the remote is unreachable right now.
+// Holding mu keeps a re-apply from overtaking it.
+func (p *Proxy) configure(ctx context.Context, s *pb.Settings) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	_, err := p.c.Configure(ctx, s)
+	if err == nil || transient(err) {
+		proto.Merge(p.last, s)
+		// Back to auto gain: a remembered manual value would turn
+		// manual gain back on when re-applied.
+		if s.GainManual != nil && !s.GetGainManual() {
+			p.last.GainTenthDb = nil
+		}
+	}
+	return err
+}
+
+// reapply sends the wanted state again, waiting for the remote and
+// retrying while it is unreachable.
+func (p *Proxy) reapply(ctx context.Context) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if proto.Size(p.last) == 0 {
+		return
+	}
+	for {
+		_, err := p.c.Configure(ctx, p.last, grpc.WaitForReady(true))
+		if err == nil || ctx.Err() != nil {
+			return
+		}
+		slog.Warn("reapply settings", "err", err)
+		if !transient(err) {
+			return
+		}
+		select {
+		case <-time.After(p.opts.Backoff):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func transient(err error) bool {
+	switch status.Code(err) {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// nearest returns the gain table entry closest to v.
+func nearest(gains []int32, v int32) int32 {
+	best := v
+	for i, g := range gains {
+		if i == 0 || abs(g-v) < abs(best-v) {
+			best = g
+		}
+	}
+	return best
+}
+
+func abs(x int32) int32 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // settings maps one rtl_tcp command; nil means nothing to send.
@@ -170,7 +238,8 @@ func settings(c command, arg uint32, gains []int32) (*pb.Settings, error) {
 	case cmdGainMode:
 		return &pb.Settings{GainManual: proto.Bool(arg != 0)}, nil
 	case cmdGain:
-		return &pb.Settings{GainTenthDb: proto.Int32(int32(arg))}, nil
+		// Clients send any value; the remote accepts table entries only.
+		return &pb.Settings{GainTenthDb: proto.Int32(nearest(gains, int32(arg)))}, nil
 	case cmdFreqCorrection:
 		return &pb.Settings{Ppm: proto.Int32(int32(arg))}, nil
 	case cmdAGCMode:
@@ -210,14 +279,7 @@ func (p *Proxy) stream(ctx context.Context, conn net.Conn) error {
 		case <-ctx.Done():
 			return nil
 		}
-		p.mu.Lock()
-		last := proto.CloneOf(p.last)
-		p.mu.Unlock()
-		if proto.Size(last) > 0 {
-			if _, err := p.c.Configure(ctx, last); err != nil {
-				slog.Warn("reapply settings", "err", err)
-			}
-		}
+		p.reapply(ctx)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 
@@ -45,6 +46,16 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithInitialWindowSize(remote.Window),
 		grpc.WithInitialConnWindowSize(remote.Window),
+		// Reconnect within seconds after the remote host comes back,
+		// instead of gRPC's default backoff of up to two minutes.
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.Config{
+				BaseDelay:  250 * time.Millisecond,
+				Multiplier: 1.6,
+				MaxDelay:   2 * time.Second,
+			},
+			MinConnectTimeout: 5 * time.Second,
+		}),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                5 * time.Second,
 			Timeout:             5 * time.Second,
