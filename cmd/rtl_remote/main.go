@@ -3,6 +3,7 @@
 package main
 
 import (
+	stdgzip "compress/gzip"
 	"context"
 	"flag"
 	"log"
@@ -14,10 +15,10 @@ import (
 	"github.com/dim13/r82xx"
 	"github.com/dim13/r82xx/tuner"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/proto"
 
-	_ "github.com/dim13/rtl_proto/grpczstd"
 	"github.com/dim13/rtl_proto/remote"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
@@ -65,6 +66,10 @@ func main() {
 		debug = flag.Bool("d", false, "debug log")
 	)
 	flag.Parse()
+	// Speed over ratio: per-frame ratios match higher levels on I/Q.
+	if err := gzip.SetLevel(stdgzip.BestSpeed); err != nil {
+		log.Fatal("gzip: ", err)
+	}
 
 	var level slog.Level
 	if *debug {

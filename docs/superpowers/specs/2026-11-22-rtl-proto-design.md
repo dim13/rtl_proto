@@ -67,7 +67,7 @@ These would make the work a failure even if it technically runs:
   sibling repos rtl_tcp and r82xx (stdlib `flag`, no `internal/`, no
   Makefile).
 - Dependencies: `google.golang.org/grpc`, `google.golang.org/protobuf`,
-  `github.com/klauspost/compress/zstd`, `github.com/dim13/r82xx`,
+  `github.com/dim13/r82xx`,
   `github.com/google/gousb` (remote only).
 - rtl_remote runs on the nuc (Void Linux, x86-64), with modest CPU.
 - Device control is whatever r82xx exposes today: frequency, sample
@@ -215,12 +215,15 @@ Error semantics (gRPC status codes):
   server-side keepalive so dead streams are noticed on their own.
 - `Internal`: USB or tuner failure (e.g. PLL did not lock).
 
-Compression: gRPC per-message compression with a zstd compressor
-registered under the name `zstd` (klauspost, fastest level). The proxy
-requests it on `Stream`. It applies on top of requantization and
-catches the remaining entropy. Measured on real captures from the nuc,
-zstd alone gives 0.55 to 0.81 of the original size on 8-bit I/Q with
-signal, and 0.17 to 0.26 on a quiet band.
+Compression: gRPC's built-in gzip compressor
+(`google.golang.org/grpc/encoding/gzip`, stdlib `compress/gzip` at
+`BestSpeed`), requested by the proxy on `Stream`. It applies on top of
+requantization. Measured per 16 KiB frame on real captures from the
+nuc: noisy 8-bit frames barely compress (0.97 to 0.98), quiet ones
+reach 0.30; at 2 to 4 bits the codes cluster near zero and gzip
+roughly halves them again (e.g. 0.50 to 0.24 at 4 bits). zstd
+(klauspost, fastest) gave the same ratios, so the extra dependency
+was dropped.
 
 ## Sample codec
 
@@ -240,7 +243,7 @@ Input: u8 I/Q, zero level 127.5.
   - Codes are packed MSB-first, I and Q interleaved, padded to a byte at
     the end of the frame.
 - Frame size: 8192 complex samples (16 KiB raw, about 3.4 ms at
-  2.4 MS/s), small for latency but large enough for zstd and to keep
+  2.4 MS/s), small for latency but large enough for gzip and to keep
   the message rate (about 300/s at 2.4 MS/s) cheap.
 
 The codec lives in its own package with table-driven tests: bit-exact
@@ -339,7 +342,7 @@ Correct any of these:
   setting.
 - Requantization per frame with a symmetric uniform quantizer, step
   floor 1 so quiet signals stay lossless; default `min_bits` 2.
-- zstd via gRPC per-message compression, not inside the frame.
+- gzip via gRPC per-message compression, not inside the frame.
 - Frame size 8192 complex samples, one USB transfer per frame.
 - Latency target under 100 ms on the local network; drop oldest, not
   newest.

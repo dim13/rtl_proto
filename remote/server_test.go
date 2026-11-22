@@ -12,12 +12,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/dim13/rtl_proto/codec"
-	"github.com/dim13/rtl_proto/grpczstd"
 	"github.com/dim13/rtl_proto/remote/fake"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
@@ -47,7 +47,7 @@ func openStream(t *testing.T, c pb.ReceiverClient, req *pb.StreamRequest) grpc.S
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	st, err := c.Stream(ctx, req, grpc.UseCompressor(grpczstd.Name))
+	st, err := c.Stream(ctx, req, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		t.Fatal(err)
 	}

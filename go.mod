@@ -10,7 +10,6 @@ tool (
 require (
 	github.com/dim13/r82xx v0.0.0-20261122174307-2ba683df77ae
 	github.com/google/gousb v1.1.3
-	github.com/klauspost/compress v1.20.5
 	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.12
 )

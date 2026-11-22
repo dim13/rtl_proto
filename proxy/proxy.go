@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/dim13/rtl_proto/codec"
-	"github.com/dim13/rtl_proto/grpczstd"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
 
@@ -228,7 +228,7 @@ func (p *Proxy) streamOnce(ctx context.Context, conn net.Conn) error {
 	st, err := p.c.Stream(ctx, &pb.StreamRequest{
 		MinBits: proto.Uint32(p.opts.MinBits),
 		MaxBits: proto.Uint32(p.opts.MaxBits),
-	}, grpc.UseCompressor(grpczstd.Name))
+	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return err
 	}
