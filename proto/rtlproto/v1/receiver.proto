@@ -1,4 +1,4 @@
-syntax = "proto3";
+edition = "2023";
 
 package rtlproto.v1;
 
@@ -46,24 +46,24 @@ enum TunerType {
 // Explicit presence: unset fields are left unchanged.
 message Settings {
   // Center frequency in Hz.
-  optional uint64 frequency_hz = 1;
+  uint64 frequency_hz = 1;
   // Sample rate in Hz, as requested.
-  optional uint32 sample_rate_hz = 2;
+  uint32 sample_rate_hz = 2;
   // Sample rate actually achieved, in Hz. Reply only.
-  optional double sample_rate_exact_hz = 3;
+  double sample_rate_exact_hz = 3;
   // Crystal correction in ppm.
-  optional sint32 ppm = 4;
+  sint32 ppm = 4;
   // Manual tuner gain instead of tuner AGC.
-  optional bool gain_manual = 5;
+  bool gain_manual = 5;
   // Tuner gain in tenths of dB, one of DeviceInfo.gains_tenth_db.
   // Implies manual gain.
-  optional sint32 gain_tenth_db = 6;
+  sint32 gain_tenth_db = 6;
   // Demodulator digital AGC.
-  optional bool agc = 7;
+  bool agc = 7;
   // DC power on the antenna input.
-  optional bool bias_tee = 8;
+  bool bias_tee = 8;
   // Direct sampling mode.
-  optional DirectSampling direct_sampling = 9;
+  DirectSampling direct_sampling = 9;
 }
 
 enum DirectSampling {

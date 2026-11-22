@@ -134,7 +134,7 @@ rtl_proxy:
 Package `rtlproto.v1`. Sketch (field numbers final once reviewed):
 
 ```proto
-syntax = "proto3";
+edition = "2023"; // every field has explicit presence
 package rtlproto.v1;
 option go_package = "github.com/dim13/rtl_proto/rtlprotov1";
 
@@ -170,15 +170,15 @@ enum TunerType {   // values match librtlsdr / rtl_tcp greeting
 
 // Explicit presence: unset fields are left unchanged.
 message Settings {
-  optional uint64 frequency_hz = 1;
-  optional uint32 sample_rate_hz = 2;   // reply carries the requested rate;
-  optional double sample_rate_exact_hz = 3; // reply only
-  optional sint32 ppm = 4;
-  optional bool gain_manual = 5;
-  optional sint32 gain_tenth_db = 6;
-  optional bool agc = 7;                // demodulator digital AGC
-  optional bool bias_tee = 8;
-  optional DirectSampling direct_sampling = 9;
+  uint64 frequency_hz = 1;
+  uint32 sample_rate_hz = 2;   // reply carries the requested rate;
+  double sample_rate_exact_hz = 3; // reply only
+  sint32 ppm = 4;
+  bool gain_manual = 5;
+  sint32 gain_tenth_db = 6;
+  bool agc = 7;                // demodulator digital AGC
+  bool bias_tee = 8;
+  DirectSampling direct_sampling = 9;
 }
 
 enum DirectSampling {
@@ -329,13 +329,13 @@ installed `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`.
 - Keepalive intervals.
 - Whether to clip at k standard deviations instead of the maximum.
 - Logging detail, beyond the once-per-second drop summary and an
-  optional latency readout in `-d` mode.
+  latency readout in `-d` mode.
 
 ## Calls made without explicit user input
 
 Correct any of these:
 
-- One `Configure` RPC with `optional` fields instead of one RPC per
+- One `Configure` RPC relying on explicit field presence (edition 2023) instead of one RPC per
   setting.
 - Requantization per frame with a symmetric uniform quantizer, step
   floor 1 so quiet signals stay lossless; default `min_bits` 2.
