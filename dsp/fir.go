@@ -56,6 +56,7 @@ func bessel0(x float64) float64 {
 // computing only the kept ones. State carries across Process calls.
 type Decimator struct {
 	taps   []float32
+	sym    bool // taps mirror around the center: fold, half the multiplies
 	factor int
 	hist   []complex64 // last len(taps)-1 inputs
 	skip   int         // inputs to pass before the next output
@@ -63,8 +64,13 @@ type Decimator struct {
 }
 
 func NewDecimator(taps []float32, factor int) *Decimator {
+	sym := len(taps)%2 == 1
+	for k := range len(taps) / 2 {
+		sym = sym && taps[k] == taps[len(taps)-1-k]
+	}
 	return &Decimator{
 		taps:   taps,
+		sym:    sym,
 		factor: factor,
 		hist:   make([]complex64, len(taps)-1),
 	}
@@ -76,12 +82,25 @@ func (d *Decimator) Process(dst, src []complex64) []complex64 {
 	d.buf = append(append(d.buf[:0], d.hist...), src...)
 	h := len(d.hist)
 	i := h + d.skip
+	n := len(d.taps)
 	for ; i < len(d.buf); i += d.factor {
 		var re, im float32
-		for k, t := range d.taps {
-			v := d.buf[i-k]
-			re += t * real(v)
-			im += t * imag(v)
+		if d.sym {
+			w := d.buf[i-n+1 : i+1] // oldest first
+			for k, t := range d.taps[:n/2] {
+				a, b := w[k], w[n-1-k]
+				re += t * (real(a) + real(b))
+				im += t * (imag(a) + imag(b))
+			}
+			v := w[n/2]
+			re += d.taps[n/2] * real(v)
+			im += d.taps[n/2] * imag(v)
+		} else {
+			for k, t := range d.taps {
+				v := d.buf[i-k]
+				re += t * real(v)
+				im += t * imag(v)
+			}
 		}
 		dst = append(dst, complex(re, im))
 	}

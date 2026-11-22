@@ -146,3 +146,18 @@ func TestLowpassTaps(t *testing.T) {
 		t.Errorf("got %d, want %d", got, want)
 	}
 }
+
+// The impulse response is the taps, folded (symmetric) or not.
+func TestDecimatorImpulse(t *testing.T) {
+	for _, taps := range [][]float32{{1, 2, 1}, {1, 2, 3}, {0.5, 1, 2, 1, 0.5}} {
+		x := make([]complex64, len(taps)+2)
+		x[0] = 1
+		out := NewDecimator(taps, 1).Process(nil, x)
+		for k, want := range taps {
+			if out[k] != complex(want, 0) {
+				t.Errorf("taps %v: out %v", taps, out[:len(taps)])
+				break
+			}
+		}
+	}
+}

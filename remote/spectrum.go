@@ -16,6 +16,12 @@ import (
 // maxStreams bounds concurrent Spectrum and Channel streams, each.
 const maxStreams = 8
 
+// maxAverage caps the FFTs averaged into one line. Beyond ~16 the line
+// barely gets smoother (noise spread ~1.4 dB at 16, ~0.8 dB at 47) while
+// FFT work grows: at 2.4 MS/s and 2048 bins the full average would be
+// ~1170 FFTs/s, the largest cost on a small remote CPU.
+const maxAverage = 16
+
 // defaultRate applies until the first Configure sets a sample rate.
 const defaultRate = 2_400_000
 
@@ -86,7 +92,7 @@ func (s *Server) Spectrum(req *pb.SpectrumRequest, ss grpc.ServerStreamingServer
 			}
 			return status.FromContextError(ctx.Err()).Err()
 		}
-		for i := 0; i < len(f.raw); i += 2 {
+		for i := 0; i < len(f.raw) && blocks < maxAverage; i += 2 {
 			re := (float32(f.raw[i]) - 127.5) / 127.5
 			im := (float32(f.raw[i+1]) - 127.5) / 127.5
 			blk[fill] = complex(re*w[fill], im*w[fill])
@@ -111,7 +117,7 @@ func (s *Server) Spectrum(req *pb.SpectrumRequest, ss grpc.ServerStreamingServer
 			power[i] = byte(max(0, min(255, math.Round((db+127.5)*2))))
 		}
 		clear(acc)
-		blocks, samples = 0, 0
+		blocks, samples, fill = 0, 0, 0
 		err = ss.Send(&pb.SpectrumLine{
 			CenterHz:         proto.Uint64(center),
 			SampleRateHz:     proto.Uint32(rate),
