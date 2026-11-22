@@ -26,3 +26,10 @@ func (n *NCO) Mix(x []complex64) {
 		n.phase -= math.Floor(n.phase)
 	}
 }
+
+// Advance moves the phase as if n samples had been mixed, e.g. across
+// dropped input, so the output stays coherent.
+func (n *NCO) Advance(samples int) {
+	n.phase += n.freq * float64(samples)
+	n.phase -= math.Floor(n.phase)
+}

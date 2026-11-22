@@ -126,3 +126,23 @@ func TestDecimatorRejectsAlias(t *testing.T) {
 		t.Errorf("passband at 0.01: %.2f dB, want 0±0.5", db)
 	}
 }
+
+// Advance keeps phase as if n samples had been mixed.
+func TestNCOAdvance(t *testing.T) {
+	a, b := NewNCO(0.013), NewNCO(0.013)
+	skip := make([]complex64, 777)
+	a.Mix(skip)
+	b.Advance(777)
+	x, y := []complex64{1}, []complex64{1}
+	a.Mix(x)
+	b.Mix(y)
+	if cmplx.Abs(complex128(x[0]-y[0])) > 1e-5 {
+		t.Errorf("got %v, want %v", y[0], x[0])
+	}
+}
+
+func TestLowpassTaps(t *testing.T) {
+	if got, want := LowpassTaps(0.1, 0.15), len(Lowpass(0.1, 0.15)); got != want {
+		t.Errorf("got %d, want %d", got, want)
+	}
+}

@@ -36,15 +36,14 @@ func (l *limit) release() {
 	l.n.Add(-1)
 }
 
-// tuning returns the current center frequency and sample rate.
+// tuning returns the current center frequency and sample rate without
+// waiting for a Configure in progress.
 func (s *Server) tuning() (center uint64, rate uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	rate = s.st.GetSampleRateHz()
+	rate = s.rate.Load()
 	if rate == 0 {
 		rate = defaultRate
 	}
-	return s.st.GetFrequencyHz(), rate
+	return s.center.Load(), rate
 }
 
 func (s *Server) Spectrum(req *pb.SpectrumRequest, ss grpc.ServerStreamingServer[pb.SpectrumLine]) error {

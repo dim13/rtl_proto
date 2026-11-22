@@ -39,6 +39,11 @@ type Server struct {
 	hub *hub
 	gen atomic.Uint64 // bumped by tuning changes
 
+	// center and rate mirror st for stream handlers, which must not
+	// wait for a Configure doing slow USB work under mu.
+	center atomic.Uint64
+	rate   atomic.Uint32
+
 	mu sync.Mutex // serializes Configure, guards st
 	st *pb.Settings
 
@@ -143,6 +148,7 @@ func (s *Server) apply(in *pb.Settings) error {
 			return err
 		}
 		s.st.SampleRateHz = proto.Uint32(rate)
+		s.rate.Store(rate)
 		s.st.SampleRateExactHz = proto.Float64(exact)
 		s.gen.Add(1)
 	}
@@ -151,6 +157,7 @@ func (s *Server) apply(in *pb.Settings) error {
 			return err
 		}
 		s.st.FrequencyHz = proto.Uint64(in.GetFrequencyHz())
+		s.center.Store(in.GetFrequencyHz())
 		s.gen.Add(1)
 	}
 	if in.GainManual != nil {

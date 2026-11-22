@@ -43,6 +43,7 @@ type Device struct {
 	FailRate  bool          // SetSampleRate fails
 	FailAfter int           // first reader fails after this many blocks, 0 never
 	Tone      float64       // complex tone in Hz from center instead of the counter, 0 off
+	SlowGain  time.Duration // SetGain takes this long, like I²C over USB
 
 	mu     sync.Mutex
 	st     State
@@ -128,6 +129,7 @@ func (d *Device) SetGainManual() error {
 }
 
 func (d *Device) SetGain(tenthsDB int) error {
+	time.Sleep(d.SlowGain)
 	d.record("SetGain", func(s *State) { s.Gain, s.Manual = tenthsDB, true })
 	return nil
 }

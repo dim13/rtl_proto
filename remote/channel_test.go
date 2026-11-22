@@ -189,3 +189,61 @@ func TestChannelWithStreamAndSpectrum(t *testing.T) {
 		recvFrame(t, ch)
 	}
 }
+
+// Frames the channel had to drop show up as gaps in first_sample.
+func TestChannelReportsDrops(t *testing.T) {
+	c := dial(t, &fake.Device{}) // unpaced: produces faster than the channel can filter
+	configure(t, c, &pb.Settings{SampleRateHz: proto.Uint32(2_400_000)})
+	ch, _ := openChannel(t, c, req(0, 48_000))
+	next := uint64(0)
+	for range 400 {
+		f := recvFrame(t, ch)
+		if f.GetFirstSample() > next {
+			return
+		}
+		next = f.GetFirstSample() + uint64(f.GetCount())
+	}
+	t.Error("no gap reported although the device outruns the channel")
+}
+
+// A slow Configure (e.g. gain over I²C) must not stall channel frames.
+func TestChannelDuringSlowConfigure(t *testing.T) {
+	c := dial(t, &fake.Device{SlowGain: 500 * time.Millisecond, Pace: realtime})
+	configure(t, c, &pb.Settings{SampleRateHz: proto.Uint32(2_400_000)})
+	ch, _ := openChannel(t, c, req(0, 48_000))
+	recvFrame(t, ch)
+	go c.Configure(context.Background(), &pb.Settings{GainTenthDb: proto.Int32(197)})
+	time.Sleep(50 * time.Millisecond) // let Configure take the lock
+	last := time.Now()
+	for range 50 {
+		recvFrame(t, ch)
+		if d := time.Since(last); d > 100*time.Millisecond {
+			t.Fatalf("frame gap %v during Configure", d)
+		}
+		last = time.Now()
+	}
+}
+
+// Requests that would need a huge or very busy filter are refused.
+func TestChannelFilterCost(t *testing.T) {
+	c := dial(t, &fake.Device{})
+	configure(t, c, &pb.Settings{SampleRateHz: proto.Uint32(2_400_000)})
+	for _, r := range []*pb.ChannelRequest{
+		req(0, 1),
+		req(0, 100),
+		{OffsetHz: proto.Int64(0), SampleRateHz: proto.Uint32(2_400_000), BandwidthHz: proto.Uint32(2_400_000)},
+	} {
+		ch, _ := openChannel(t, c, r)
+		done := make(chan error, 1)
+		go func() {
+			_, err := ch.Recv()
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			wantCode(t, err, codes.InvalidArgument)
+		case <-time.After(200 * time.Millisecond):
+			t.Fatalf("rate %d: no answer within 200ms", r.GetSampleRateHz())
+		}
+	}
+}

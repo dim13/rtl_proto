@@ -15,6 +15,16 @@ import (
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
 
+const (
+	// channelFrames is the channel's queue depth, ~220 ms at 2.4 MS/s:
+	// enough to ride out a WiFi stall instead of dropping audio.
+	channelFrames = 64
+	// maxTaps and maxWork bound the filter a client can ask for, in
+	// taps and in multiply-accumulates per second.
+	maxTaps = 8191
+	maxWork = 100e6
+)
+
 // chanConfig is what a client asked for, validated against a device rate.
 type chanConfig struct {
 	offset int64
@@ -54,10 +64,23 @@ func (c chanConfig) check(devRate uint32) error {
 		return fmt.Errorf("rate %d does not divide device rate %d", c.rate, devRate)
 	case c.offset < -int64(devRate)/2 || c.offset > int64(devRate)/2:
 		return fmt.Errorf("offset %d outside ±%d", c.offset, devRate/2)
-	case c.bw > c.rate:
-		return fmt.Errorf("bandwidth %d above rate %d", c.bw, c.rate)
+	case c.bw == 0 || c.bw > c.rate:
+		return fmt.Errorf("bandwidth %d outside 1..%d", c.bw, c.rate)
+	}
+	pass, stop := c.edges(devRate)
+	if taps := dsp.LowpassTaps(pass, stop); taps > maxTaps || float64(taps)*float64(c.rate) > maxWork {
+		return fmt.Errorf("filter too costly: %d taps at %d S/s", taps, c.rate)
 	}
 	return nil
+}
+
+// edges returns the filter's passband and stopband edges in cycles per
+// device sample. Stopping at rate−pass lets only the transition band
+// alias onto itself.
+func (c chanConfig) edges(devRate uint32) (pass, stop float64) {
+	fs := float64(devRate)
+	p := float64(c.bw) / 2
+	return p / fs, max(float64(c.rate)-p, p+0.05*float64(c.rate)) / fs
 }
 
 func newPipe(c chanConfig, devRate uint32) *pipe {
@@ -71,10 +94,7 @@ func newPipe(c chanConfig, devRate uint32) *pipe {
 
 // filter builds the decimator; the NCO keeps its phase.
 func (p *pipe) filter(c chanConfig) {
-	fs := float64(p.devRate)
-	pass := float64(c.bw) / 2
-	stop := max(float64(c.rate)-pass, pass+0.05*float64(c.rate))
-	p.dec = dsp.NewDecimator(dsp.Lowpass(pass/fs, stop/fs), int(p.devRate/c.rate))
+	p.dec = dsp.NewDecimator(dsp.Lowpass(c.edges(p.devRate)), int(p.devRate/c.rate))
 }
 
 // process turns one raw u8 frame into int16 I/Q bytes.
@@ -127,12 +147,12 @@ func (s *Server) Channel(ss grpc.BidiStreamingServer[pb.ChannelRequest, pb.Chann
 			}
 		}
 	}()
-	q, unsub := s.hub.subscribe(queueFrames)
+	q, unsub := s.hub.subscribe(channelFrames)
 	defer unsub()
 
 	p := newPipe(cfg, devRate)
-	var first uint64
-	for {
+	var first, next uint64 // output index; expected input index
+	for n := 0; ; n++ {
 		f, err := q.get(ctx)
 		if err != nil {
 			if ctx.Err() == nil {
@@ -143,6 +163,13 @@ func (s *Server) Channel(ss grpc.BidiStreamingServer[pb.ChannelRequest, pb.Chann
 		if cfg, err = s.update(ctx, cfg, p, updates); err != nil {
 			return err
 		}
+		// Dropped input: keep the oscillator coherent and let the
+		// client see the gap in first_sample.
+		if gap := f.first - next; n > 0 && gap > 0 {
+			p.nco.Advance(int(gap))
+			first += gap / uint64(p.devRate/cfg.rate)
+		}
+		next = f.first + uint64(len(f.raw)/2)
 		iq, n := p.process(f.raw)
 		err = ss.Send(&pb.ChannelFrame{
 			FirstSample:      proto.Uint64(first),

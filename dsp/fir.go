@@ -9,9 +9,7 @@ const attenuation = 70
 // Lowpass designs a Kaiser-windowed sinc lowpass with unity DC gain,
 // flat to pass and attenuated beyond stop (cycles per sample, 0..0.5).
 func Lowpass(pass, stop float64) []float32 {
-	transition := stop - pass
-	n := int(math.Ceil((attenuation-8)/(2.285*2*math.Pi*transition))) + 1
-	n |= 1 // odd: symmetric around a center tap
+	n := LowpassTaps(pass, stop)
 	beta := 0.1102 * (attenuation - 8.7)
 	cutoff := (pass + stop) / 2
 	taps := make([]float64, n)
@@ -32,6 +30,13 @@ func Lowpass(pass, stop float64) []float32 {
 		out[i] = float32(v / sum)
 	}
 	return out
+}
+
+// LowpassTaps is the tap count Lowpass would use, to check a design's
+// cost before building it.
+func LowpassTaps(pass, stop float64) int {
+	n := int(math.Ceil((attenuation-8)/(2.285*2*math.Pi*(stop-pass)))) + 1
+	return n | 1 // odd: symmetric around a center tap
 }
 
 // bessel0 is the modified Bessel function of the first kind, order 0.
