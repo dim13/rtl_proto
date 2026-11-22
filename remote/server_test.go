@@ -312,3 +312,24 @@ func TestTakeoverUnreadStream(t *testing.T) {
 		t.Fatal("new stream got no frame within 1s")
 	}
 }
+
+// A frequency correction alone retunes the current frequency, as
+// rtl_tcp does (RFC 0x05).
+func TestConfigurePPMRetunes(t *testing.T) {
+	dev := &fake.Device{}
+	c := dial(t, dev)
+	ctx := context.Background()
+	if _, err := c.Configure(ctx, &pb.Settings{FrequencyHz: proto.Uint64(100e6)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Configure(ctx, &pb.Settings{Ppm: proto.Int32(5)}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"SetFrequency", "SetPPM", "SetFrequency"}
+	if got := dev.Snapshot().Calls; !slices.Equal(got, want) {
+		t.Errorf("calls: got %v, want %v", got, want)
+	}
+	if got := dev.Snapshot().Freq; got != 100e6 {
+		t.Errorf("freq: got %v, want 100e6", got)
+	}
+}

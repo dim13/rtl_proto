@@ -126,6 +126,12 @@ func (s *Server) apply(in *pb.Settings) error {
 		}
 		s.st.Ppm = proto.Int32(in.GetPpm())
 		s.gen.Add(1)
+		// The tuner LO depends on the correction: retune, as rtl_tcp does.
+		if in.FrequencyHz == nil && s.st.GetFrequencyHz() != 0 {
+			if err := s.dev.SetFrequency(float64(s.st.GetFrequencyHz())); err != nil {
+				return err
+			}
+		}
 	}
 	if in.SampleRateHz != nil {
 		rate := in.GetSampleRateHz()
