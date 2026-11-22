@@ -8,6 +8,7 @@ tool (
 )
 
 require (
+	github.com/klauspost/compress v1.20.5
 	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.12
 )
