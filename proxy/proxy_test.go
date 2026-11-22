@@ -160,3 +160,31 @@ func TestClientDisconnect(t *testing.T) {
 	}
 	eventually(t, func() bool { return dev.Snapshot().Closed == 1 })
 }
+
+func TestReconnect(t *testing.T) {
+	dev := &fake.Device{FailAfter: 50, Pace: time.Millisecond}
+	c, done := session(t, dev, Options{Backoff: 10 * time.Millisecond})
+	readGreeting(t, c)
+	send(t, c, 0x01, 100_000_000)
+	eventually(t, func() bool { return dev.Snapshot().Freq == 100e6 })
+	// The first sample reader fails after 50 frames; samples must keep
+	// coming from a new stream.
+	buf := make([]byte, 100*remote.FrameBytes)
+	if _, err := io.ReadFull(c, buf); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	for _, call := range dev.Snapshot().Calls {
+		if call == "SetFrequency" {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Errorf("SetFrequency calls: got %d, want 2 (original + re-applied)", n)
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("Serve returned: %v", err)
+	default:
+	}
+}

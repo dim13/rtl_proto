@@ -38,6 +38,8 @@ var commandNames = [...]string{
 	cmdBiasTee:        "bias tee",
 }
 
+var errClientGone = errors.New("client gone")
+
 type command byte
 
 // rtl_tcp commands.
@@ -194,21 +196,45 @@ func settings(c command, arg uint32, gains []int32) (*pb.Settings, error) {
 }
 
 // stream copies decoded frames to conn until ctx ends or the client is
-// gone.
+// gone. A failed stream is reopened after re-applying the last settings,
+// since the remote may have restarted.
 func (p *Proxy) stream(ctx context.Context, conn net.Conn) error {
+	for {
+		err := p.streamOnce(ctx, conn)
+		if ctx.Err() != nil || errors.Is(err, errClientGone) {
+			return nil
+		}
+		slog.Warn("stream", "err", err)
+		select {
+		case <-time.After(p.opts.Backoff):
+		case <-ctx.Done():
+			return nil
+		}
+		p.mu.Lock()
+		last := proto.CloneOf(p.last)
+		p.mu.Unlock()
+		if proto.Size(last) > 0 {
+			if _, err := p.c.Configure(ctx, last); err != nil {
+				slog.Warn("reapply settings", "err", err)
+			}
+		}
+	}
+}
+
+func (p *Proxy) streamOnce(ctx context.Context, conn net.Conn) error {
 	st, err := p.c.Stream(ctx, &pb.StreamRequest{
 		MinBits: proto.Uint32(p.opts.MinBits),
 		MaxBits: proto.Uint32(p.opts.MaxBits),
 	}, grpc.UseCompressor(grpczstd.Name))
 	if err != nil {
-		return streamErr(ctx, err)
+		return err
 	}
 	var buf []byte
 	s := stats{since: time.Now()}
 	for {
 		f, err := st.Recv()
 		if err != nil {
-			return streamErr(ctx, err)
+			return err
 		}
 		n := 2 * int(f.GetCount())
 		if cap(buf) < n {
@@ -219,7 +245,7 @@ func (p *Proxy) stream(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 		if _, err := conn.Write(buf); err != nil {
-			return nil // client gone
+			return errClientGone
 		}
 		s.update(f)
 	}
@@ -240,12 +266,4 @@ func (s *stats) update(f *pb.Frame) {
 	}
 	slog.Debug("stream", "bits", s.bits, "latency", s.latency.Round(time.Millisecond))
 	s.dropped, s.since = 0, time.Now()
-}
-
-// streamErr hides errors caused by the session ending.
-func streamErr(ctx context.Context, err error) error {
-	if ctx.Err() != nil {
-		return nil
-	}
-	return err
 }

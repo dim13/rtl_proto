@@ -36,11 +36,11 @@ type State struct {
 
 // Device is a fake RTL-SDR. Set the exported fields before use.
 type Device struct {
-	Type            tuner.Type
-	V4              bool
-	Pace            time.Duration // sleep per 16384 bytes produced
-	FailRate        bool          // SetSampleRate fails
-	FailSamplesOnce bool          // first reader fails after one block
+	Type      tuner.Type
+	V4        bool
+	Pace      time.Duration // sleep per 16384 bytes produced
+	FailRate  bool          // SetSampleRate fails
+	FailAfter int           // first reader fails after this many blocks, 0 never
 
 	mu     sync.Mutex
 	st     State
@@ -138,7 +138,7 @@ func (d *Device) Strings() (string, string, error) {
 func (d *Device) Samples() (io.ReadCloser, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	fail := d.FailSamplesOnce && !d.failed
+	fail := d.FailAfter > 0 && !d.failed
 	d.failed = d.failed || fail
 	return &reader{d: d, fail: fail}, nil
 }
@@ -150,7 +150,7 @@ func (r *reader) Read(p []byte) (int, error) {
 	if closed {
 		return 0, ErrClosed
 	}
-	if r.fail && r.n >= block {
+	if r.fail && r.n >= r.d.FailAfter*block {
 		return 0, ErrUSB
 	}
 	if left := block - r.n%block; len(p) > left {
