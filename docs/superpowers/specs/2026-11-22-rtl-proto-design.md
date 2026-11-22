@@ -302,7 +302,7 @@ and no authentication, like rtl_tcp:
 ## Command lines
 
 ```
-rtl_remote [-a :7373] [-f 100e6 -s 2048000 -g 0 -P 0] [-d]
+rtl_remote [-a :7373] [-f 100e6 -s 2400000 -g 0 -P 0] [-d]
 rtl_proxy  [-a localhost:1234] [-min-bits 2 -max-bits 8] [-d] [host[:7373]]
 ```
 

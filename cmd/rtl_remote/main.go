@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dim13/r82xx"
 	"github.com/dim13/r82xx/tuner"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
@@ -24,6 +23,7 @@ import (
 	"github.com/dim13/rtl_proto/discovery"
 	"github.com/dim13/rtl_proto/remote"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
+	"github.com/dim13/rtl_proto/usbdev"
 )
 
 // listener keeps the kernel send buffer small, so a saturated link
@@ -77,7 +77,7 @@ func main() {
 	var (
 		addr  = flag.String("a", fmt.Sprintf(":%d", discovery.Port), "listen address")
 		freq  = flag.Float64("f", 100e6, "frequency in Hz")
-		rate  = flag.Uint("s", 2_048_000, "sample rate in Hz")
+		rate  = flag.Uint("s", 2_400_000, "sample rate in Hz")
 		gain  = flag.Float64("g", 0, "gain in dB, 0 for auto")
 		ppm   = flag.Int("P", 0, "frequency correction in ppm")
 		debug = flag.Bool("d", false, "debug log")
@@ -97,18 +97,13 @@ func main() {
 	// The log package now writes through slog; only log.Fatal uses it.
 	slog.SetLogLoggerLevel(slog.LevelError)
 
-	u, err := openUSB()
-	if err != nil {
-		log.Fatal("usb: ", err)
-	}
-	defer u.Close()
-	dev, err := r82xx.Open(u)
+	dev, err := usbdev.Open()
 	if err != nil {
 		log.Fatal("open: ", err)
 	}
 	defer dev.Close()
 
-	srv := remote.New(device{Device: dev, u: u})
+	srv := remote.New(dev)
 	initial := &pb.Settings{
 		Ppm:          proto.Int32(int32(*ppm)),
 		SampleRateHz: proto.Uint32(uint32(*rate)),
