@@ -303,11 +303,25 @@ and no authentication, like rtl_tcp:
 
 ```
 rtl_remote [-a :7373] [-f 100e6 -s 2048000 -g 0 -P 0] [-d]
-rtl_proxy  -r nuc[:7373] [-a 127.0.0.1:1234] [-min-bits 2 -max-bits 8] [-d]
+rtl_proxy  [-a 127.0.0.1:1234] [-min-bits 2 -max-bits 8] [-d] [host[:7373]]
 ```
 
 `-d` logs received commands, as in rtl_tcp. `-min-bits 8` forces
 lossless.
+
+## Discovery
+
+With no host argument, rtl_proxy finds rtl_remote on the local
+network, so neither side needs flags in the common case:
+
+- rtl_remote answers on UDP at the same address and port as gRPC
+  (default `:7373`).
+- rtl_proxy broadcasts the ASCII query `rtl_proto?` to
+  `255.255.255.255:7373` and waits up to 2 s. The first answer,
+  `rtl_proto <port>`, gives the gRPC port; its source address gives
+  the host. Other datagrams are ignored.
+- IPv4 broadcast only, so it stays within the local subnet. A host
+  given as argument skips discovery.
 
 ## Repository layout
 
@@ -351,5 +365,6 @@ Correct any of these:
   `Aborted`) instead of being refused as busy.
 - Proxy reconnects transparently and re-applies settings.
 - Remote listens on all interfaces by default (changed at the user's
-  request); the proxy adds port 7373 to a bare host.
+  request); the proxy finds it by UDP broadcast, or adds port 7373 to
+  a host given as argument.
 - Port 7373 as default for rtl_remote.

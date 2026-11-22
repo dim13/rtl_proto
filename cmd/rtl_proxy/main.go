@@ -4,10 +4,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,35 +18,47 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/dim13/rtl_proto/discovery"
 	"github.com/dim13/rtl_proto/proxy"
 	"github.com/dim13/rtl_proto/remote"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
-
-// defaultPort is rtl_remote's default listen port.
-const defaultPort = "7373"
 
 // remoteAddr adds the default port to a bare host.
 func remoteAddr(s string) string {
 	if _, _, err := net.SplitHostPort(s); err == nil {
 		return s
 	}
-	return net.JoinHostPort(strings.Trim(s, "[]"), defaultPort)
+	return net.JoinHostPort(strings.Trim(s, "[]"), strconv.Itoa(discovery.Port))
+}
+
+// findRemote returns the address given as argument, or else asks the
+// local network.
+func findRemote(arg string) (string, error) {
+	if arg != "" {
+		return remoteAddr(arg), nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	addr, err := discovery.Find(ctx, discovery.Broadcast)
+	if err != nil {
+		return "", fmt.Errorf("%w; give host as argument", err)
+	}
+	return addr, nil
 }
 
 func main() {
 	var (
-		raddr   = flag.String("r", "", "remote host[:port] (required, default port "+defaultPort+")")
 		addr    = flag.String("a", "127.0.0.1:1234", "rtl_tcp listen address")
 		minBits = flag.Uint("min-bits", 2, "lowest bits per sample component, 1..8")
 		maxBits = flag.Uint("max-bits", 8, "highest bits per sample component, 1..8")
 		debug   = flag.Bool("d", false, "log received commands and stream stats")
 	)
-	flag.Parse()
-	if *raddr == "" {
-		flag.Usage()
-		os.Exit(2)
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: rtl_proxy [flags] [host[:port]]\nWithout host, the remote is found on the local network.\n")
+		flag.PrintDefaults()
 	}
+	flag.Parse()
 
 	var level slog.Level
 	if *debug {
@@ -54,8 +68,11 @@ func main() {
 	slog.SetDefault(slog.New(h))
 	slog.SetLogLoggerLevel(slog.LevelError)
 
-	*raddr = remoteAddr(*raddr)
-	cc, err := grpc.NewClient(*raddr,
+	raddr, err := findRemote(flag.Arg(0))
+	if err != nil {
+		log.Fatal("remote: ", err)
+	}
+	cc, err := grpc.NewClient(raddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithInitialWindowSize(remote.Window),
 		grpc.WithInitialConnWindowSize(remote.Window),
@@ -88,7 +105,7 @@ func main() {
 	if err != nil {
 		log.Fatal("listen: ", err)
 	}
-	slog.Info("listening", "addr", l.Addr(), "remote", *raddr)
+	slog.Info("listening", "addr", l.Addr(), "remote", raddr)
 	for {
 		conn, err := l.Accept()
 		if err != nil {

@@ -6,10 +6,12 @@ import (
 	stdgzip "compress/gzip"
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/dim13/r82xx"
@@ -19,6 +21,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/dim13/rtl_proto/discovery"
 	"github.com/dim13/rtl_proto/remote"
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
@@ -36,6 +39,20 @@ func (l listener) Accept() (net.Conn, error) {
 		tc.SetWriteBuffer(remote.Window)
 	}
 	return c, err
+}
+
+// discover answers rtl_proxy's broadcast queries next to the gRPC port.
+func discover(a *net.TCPAddr) {
+	host := ""
+	if !a.IP.IsUnspecified() {
+		host = a.IP.String()
+	}
+	pc, err := net.ListenPacket("udp4", net.JoinHostPort(host, strconv.Itoa(a.Port)))
+	if err != nil {
+		slog.Warn("discovery off", "err", err)
+		return
+	}
+	go discovery.Serve(pc, a.Port)
 }
 
 // nearestGain maps dB to the closest gain table entry, in tenths of dB.
@@ -58,7 +75,7 @@ func abs(x float64) float64 {
 
 func main() {
 	var (
-		addr  = flag.String("a", ":7373", "listen address")
+		addr  = flag.String("a", fmt.Sprintf(":%d", discovery.Port), "listen address")
 		freq  = flag.Float64("f", 100e6, "frequency in Hz")
 		rate  = flag.Uint("s", 2_048_000, "sample rate in Hz")
 		gain  = flag.Float64("g", 0, "gain in dB, 0 for auto")
@@ -122,6 +139,7 @@ func main() {
 		}),
 	)
 	pb.RegisterReceiverServer(s, srv)
+	discover(l.Addr().(*net.TCPAddr))
 	slog.Info("listening", "addr", l.Addr(), "tuner", dev.Chip(), "blog_v4", dev.BlogV4())
 	if err := s.Serve(listener{l}); err != nil {
 		log.Fatal("serve: ", err)
