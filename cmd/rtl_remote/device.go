@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 
 	"github.com/dim13/r82xx"
@@ -16,9 +17,9 @@ func (d device) Strings() (string, string, error) {
 	return d.u.Strings()
 }
 
-func (d device) Samples() (io.ReadCloser, error) {
+func (d device) Samples(ctx context.Context) (io.Reader, error) {
 	if err := d.ResetBuffer(); err != nil {
 		return nil, err
 	}
-	return d.u.stream()
+	return d.u.stream(ctx)
 }

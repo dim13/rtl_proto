@@ -158,7 +158,7 @@ func TestClientDisconnect(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Serve did not return")
 	}
-	eventually(t, func() bool { return dev.Snapshot().Closed == 1 })
+	eventually(t, func() bool { return dev.Snapshot().Released == 1 })
 }
 
 func TestReconnect(t *testing.T) {

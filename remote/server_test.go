@@ -266,7 +266,7 @@ func TestStreamTakeover(t *testing.T) {
 	for range 3 {
 		recv(t, b)
 	}
-	eventually(t, func() bool { return dev.Snapshot().Closed == 1 })
+	eventually(t, func() bool { return dev.Snapshot().Released == 1 })
 }
 
 func TestStreamRetune(t *testing.T) {
@@ -282,4 +282,33 @@ func TestStreamRetune(t *testing.T) {
 		}
 	}
 	t.Error("settings_gen did not increase after retune")
+}
+
+// A stream whose client stopped reading (Send blocked on flow control)
+// must not keep a new stream from taking over.
+func TestTakeoverUnreadStream(t *testing.T) {
+	c := dial(t, &fake.Device{Pace: time.Millisecond})
+	// Uncompressed, so the pinned window fills and a's Send blocks.
+	actx, acancel := context.WithCancel(context.Background())
+	defer acancel()
+	a, err := c.Stream(actx, &pb.StreamRequest{MinBits: proto.Uint32(8)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recv(t, a)
+	time.Sleep(100 * time.Millisecond)
+	b := openStream(t, c, &pb.StreamRequest{})
+	got := make(chan error, 1)
+	go func() {
+		_, err := b.Recv()
+		got <- err
+	}()
+	select {
+	case err := <-got:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("new stream got no frame within 1s")
+	}
 }

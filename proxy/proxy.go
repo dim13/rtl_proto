@@ -222,6 +222,9 @@ func (p *Proxy) stream(ctx context.Context, conn net.Conn) error {
 }
 
 func (p *Proxy) streamOnce(ctx context.Context, conn net.Conn) error {
+	// Ending an attempt must end its stream on the remote too.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	st, err := p.c.Stream(ctx, &pb.StreamRequest{
 		MinBits: proto.Uint32(p.opts.MinBits),
 		MaxBits: proto.Uint32(p.opts.MaxBits),

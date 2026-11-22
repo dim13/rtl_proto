@@ -107,8 +107,28 @@ func (u *usb) Close() error {
 	return err
 }
 
-// stream returns an ordered sample stream with several transfers in
-// flight, one frame per transfer.
-func (u *usb) stream() (io.ReadCloser, error) {
-	return u.in.NewStream(remote.FrameBytes, 8)
+// samples reads an ordered stream with several transfers in flight.
+// Only ReadContext touches the ReadStream: gousb panics if Close runs
+// concurrently with a read. When ctx ends, the pending read fails and
+// gousb cancels and frees all transfers itself.
+type samples struct {
+	ctx context.Context
+	rs  *gousb.ReadStream
+}
+
+// stream returns the sample stream, one frame per transfer.
+func (u *usb) stream(ctx context.Context) (io.Reader, error) {
+	rs, err := u.in.NewStream(remote.FrameBytes, 8)
+	if err != nil {
+		return nil, err
+	}
+	return samples{ctx: ctx, rs: rs}, nil
+}
+
+// Read applies the same 10 s timeout BulkIn uses, so a stalled dongle
+// ends the stream instead of blocking it forever.
+func (s samples) Read(p []byte) (int, error) {
+	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
+	defer cancel()
+	return s.rs.ReadContext(ctx, p)
 }

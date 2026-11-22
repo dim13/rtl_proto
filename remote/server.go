@@ -48,7 +48,8 @@ type Server struct {
 	active *session
 }
 
-// session is one running Stream.
+// session is one running Stream. done closes once its sample reader
+// has released the device.
 type session struct {
 	cancel context.CancelCauseFunc
 	done   chan struct{}
@@ -199,22 +200,25 @@ func (s *Server) Stream(req *pb.StreamRequest, ss grpc.ServerStreamingServer[pb.
 	ctx, cancel := context.WithCancelCause(ss.Context())
 	defer cancel(nil)
 	me := s.takeover(cancel)
-	defer s.release(me)
 	if ctx.Err() != nil {
+		s.release(me)
 		return streamErr(ctx)
 	}
 
-	rc, err := s.dev.Samples()
+	r, err := s.dev.Samples(ctx)
 	if err != nil {
+		s.release(me)
 		return status.Error(codes.Internal, err.Error())
 	}
 	q := newQueue(queueFrames)
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		read(ctx, cancel, rc, q)
+		// Releasing here, not when the handler returns: a handler
+		// stuck in Send must not block the next stream.
+		defer s.release(me)
+		read(ctx, cancel, r, q)
 	})
 	defer wg.Wait()
-	defer rc.Close()
 
 	ctrl := newController(minBits, maxBits, holdUp)
 	for {
@@ -261,7 +265,7 @@ func read(ctx context.Context, cancel context.CancelCauseFunc, rc io.Reader, q *
 }
 
 // takeover makes a new session active, cancels the previous one and
-// waits until it has released the device.
+// waits until its reader has released the device.
 func (s *Server) takeover(cancel context.CancelCauseFunc) *session {
 	me := &session{cancel: cancel, done: make(chan struct{})}
 	s.smu.Lock()

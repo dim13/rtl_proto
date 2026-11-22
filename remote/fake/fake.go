@@ -4,6 +4,7 @@
 package fake
 
 import (
+	"context"
 	"errors"
 	"io"
 	"slices"
@@ -14,24 +15,23 @@ import (
 )
 
 var (
-	ErrRate   = errors.New("fake: sample rate rejected")
-	ErrUSB    = errors.New("fake: usb failure")
-	ErrClosed = errors.New("fake: reader closed")
+	ErrRate = errors.New("fake: sample rate rejected")
+	ErrUSB  = errors.New("fake: usb failure")
 )
 
 const block = 16384
 
 // State is what the device was told to do.
 type State struct {
-	Freq    float64
-	Rate    uint32
-	PPM     float64
-	Manual  bool
-	Gain    int
-	AGC     bool
-	BiasTee bool
-	Calls   []string // method names in call order
-	Closed  int      // sample readers closed
+	Freq     float64
+	Rate     uint32
+	PPM      float64
+	Manual   bool
+	Gain     int
+	AGC      bool
+	BiasTee  bool
+	Calls    []string // method names in call order
+	Released int      // sample readers that saw their context end
 }
 
 // Device is a fake RTL-SDR. Set the exported fields before use.
@@ -49,11 +49,11 @@ type Device struct {
 }
 
 type reader struct {
-	d      *Device
-	fail   bool
-	n      int // bytes produced by this reader
-	mu     sync.Mutex
-	closed bool
+	d        *Device
+	ctx      context.Context
+	fail     bool
+	n        int // bytes produced by this reader
+	released bool
 }
 
 // Snapshot returns a copy of the recorded state.
@@ -135,20 +135,22 @@ func (d *Device) Strings() (string, string, error) {
 	return "Fake", "Fake RTL", nil
 }
 
-func (d *Device) Samples() (io.ReadCloser, error) {
+func (d *Device) Samples(ctx context.Context) (io.Reader, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	fail := d.FailAfter > 0 && !d.failed
 	d.failed = d.failed || fail
-	return &reader{d: d, fail: fail}, nil
+	return &reader{d: d, ctx: ctx, fail: fail}, nil
 }
 
+// Read is not safe for concurrent use, like gousb's ReadStream.
 func (r *reader) Read(p []byte) (int, error) {
-	r.mu.Lock()
-	closed := r.closed
-	r.mu.Unlock()
-	if closed {
-		return 0, ErrClosed
+	if err := r.ctx.Err(); err != nil {
+		if !r.released {
+			r.released = true
+			r.d.record("Release", func(s *State) { s.Released++ })
+		}
+		return 0, err
 	}
 	if r.fail && r.n >= r.d.FailAfter*block {
 		return 0, ErrUSB
@@ -164,17 +166,10 @@ func (r *reader) Read(p []byte) (int, error) {
 	r.d.mu.Unlock()
 	r.n += len(p)
 	if r.n%block == 0 && r.d.Pace > 0 {
-		time.Sleep(r.d.Pace)
+		select {
+		case <-time.After(r.d.Pace):
+		case <-r.ctx.Done():
+		}
 	}
 	return len(p), nil
-}
-
-func (r *reader) Close() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.closed {
-		r.closed = true
-		r.d.record("Close", func(s *State) { s.Closed++ })
-	}
-	return nil
 }

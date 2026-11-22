@@ -3,6 +3,7 @@
 package remote
 
 import (
+	"context"
 	"io"
 
 	"github.com/dim13/r82xx/tuner"
@@ -27,6 +28,7 @@ type Device interface {
 	BlogV4() bool
 	Strings() (manufacturer, product string, err error)
 	// Samples flushes the device FIFO and returns a continuous,
-	// ordered u8 I/Q stream until closed.
-	Samples() (io.ReadCloser, error)
+	// ordered u8 I/Q stream. The stream ends and releases the device
+	// when ctx ends. Only one goroutine may read it.
+	Samples(ctx context.Context) (io.Reader, error)
 }
