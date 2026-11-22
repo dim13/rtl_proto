@@ -1,4 +1,4 @@
-edition = "2023";
+syntax = "proto3";
 
 package rtlproto.v1;
 
@@ -19,15 +19,15 @@ message InfoRequest {}
 
 message DeviceInfo {
   // Detected tuner chip.
-  TunerType tuner = 1;
+  optional TunerType tuner = 1;
   // Board is an RTL-SDR Blog V4 (HF through upconverter).
-  bool blog_v4 = 2;
+  optional bool blog_v4 = 2;
   // Gain table in tenths of dB, ascending.
   repeated int32 gains_tenth_db = 3;
   // USB manufacturer string.
-  string manufacturer = 4;
+  optional string manufacturer = 4;
   // USB product string.
-  string product = 5;
+  optional string product = 5;
   // Current device state.
   Settings current = 6;
 }
@@ -43,27 +43,27 @@ enum TunerType {
   TUNER_TYPE_R828D = 6;
 }
 
-// Explicit presence: unset fields are left unchanged.
+// Unset fields are left unchanged.
 message Settings {
   // Center frequency in Hz.
-  uint64 frequency_hz = 1;
+  optional uint64 frequency_hz = 1;
   // Sample rate in Hz, as requested.
-  uint32 sample_rate_hz = 2;
+  optional uint32 sample_rate_hz = 2;
   // Sample rate actually achieved, in Hz. Reply only.
-  double sample_rate_exact_hz = 3;
+  optional double sample_rate_exact_hz = 3;
   // Crystal correction in ppm.
-  sint32 ppm = 4;
+  optional sint32 ppm = 4;
   // Manual tuner gain instead of tuner AGC.
-  bool gain_manual = 5;
+  optional bool gain_manual = 5;
   // Tuner gain in tenths of dB, one of DeviceInfo.gains_tenth_db.
   // Implies manual gain.
-  sint32 gain_tenth_db = 6;
+  optional sint32 gain_tenth_db = 6;
   // Demodulator digital AGC.
-  bool agc = 7;
+  optional bool agc = 7;
   // DC power on the antenna input.
-  bool bias_tee = 8;
+  optional bool bias_tee = 8;
   // Direct sampling mode.
-  DirectSampling direct_sampling = 9;
+  optional DirectSampling direct_sampling = 9;
 }
 
 enum DirectSampling {
@@ -74,24 +74,24 @@ enum DirectSampling {
 
 message StreamRequest {
   // Lowest bits per component the remote may use, 1..8; 0 means 2.
-  uint32 min_bits = 1;
+  optional uint32 min_bits = 1;
   // Highest bits per component, 1..8; 0 means 8.
-  uint32 max_bits = 2;
+  optional uint32 max_bits = 2;
 }
 
 message Frame {
   // Index of the first complex sample since the stream started.
-  uint64 first_sample = 1;
+  optional uint64 first_sample = 1;
   // Complex samples in this frame.
-  uint32 count = 2;
+  optional uint32 count = 2;
   // Bits per component, 1..8. At 8, data is raw u8 I/Q.
-  uint32 bits = 3;
+  optional uint32 bits = 3;
   // Quantizer step in u8 units, for bits < 8.
-  float step = 4;
+  optional float step = 4;
   // Incremented by every Configure that changed tuning.
-  uint64 settings_gen = 5;
+  optional uint64 settings_gen = 5;
   // Packed codes, I and Q interleaved, MSB first.
-  bytes data = 6;
+  optional bytes data = 6;
   // When the remote read the frame from USB.
-  int64 captured_unix_nano = 7;
+  optional int64 captured_unix_nano = 7;
 }

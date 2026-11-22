@@ -134,7 +134,7 @@ rtl_proxy:
 Package `rtlproto.v1`. Sketch (field numbers final once reviewed):
 
 ```proto
-edition = "2023"; // every field has explicit presence
+syntax = "proto3"; // optional on every singular field: explicit presence
 package rtlproto.v1;
 option go_package = "github.com/dim13/rtl_proto/rtlprotov1";
 
@@ -150,11 +150,11 @@ service Receiver {
 message InfoRequest {}
 
 message DeviceInfo {
-  TunerType tuner = 1;
-  bool blog_v4 = 2;
+  optional TunerType tuner = 1;
+  optional bool blog_v4 = 2;
   repeated int32 gains_tenth_db = 3; // gain table, ascending
-  string manufacturer = 4;
-  string product = 5;
+  optional string manufacturer = 4;
+  optional string product = 5;
   Settings current = 6;
 }
 
@@ -170,15 +170,15 @@ enum TunerType {   // values match librtlsdr / rtl_tcp greeting
 
 // Explicit presence: unset fields are left unchanged.
 message Settings {
-  uint64 frequency_hz = 1;
-  uint32 sample_rate_hz = 2;   // reply carries the requested rate;
-  double sample_rate_exact_hz = 3; // reply only
-  sint32 ppm = 4;
-  bool gain_manual = 5;
-  sint32 gain_tenth_db = 6;
-  bool agc = 7;                // demodulator digital AGC
-  bool bias_tee = 8;
-  DirectSampling direct_sampling = 9;
+  optional uint64 frequency_hz = 1;
+  optional uint32 sample_rate_hz = 2;   // reply carries the requested rate;
+  optional double sample_rate_exact_hz = 3; // reply only
+  optional sint32 ppm = 4;
+  optional bool gain_manual = 5;
+  optional sint32 gain_tenth_db = 6;
+  optional bool agc = 7;                // demodulator digital AGC
+  optional bool bias_tee = 8;
+  optional DirectSampling direct_sampling = 9;
 }
 
 enum DirectSampling {
@@ -188,18 +188,18 @@ enum DirectSampling {
 }
 
 message StreamRequest {
-  uint32 min_bits = 1; // 1..8, 0 means default (2)
-  uint32 max_bits = 2; // 1..8, 0 means 8
+  optional uint32 min_bits = 1; // 1..8, 0 means default (2)
+  optional uint32 max_bits = 2; // 1..8, 0 means 8
 }
 
 message Frame {
-  uint64 first_sample = 1;  // index of first complex sample since stream start
-  uint32 count = 2;         // complex samples in this frame
-  uint32 bits = 3;          // bits per component, 1..8
-  float step = 4;           // quantizer step in u8 units (bits < 8)
-  uint64 settings_gen = 5;  // incremented by every Configure that changed tuning
-  bytes data = 6;           // packed codes, I and Q interleaved
-  int64 captured_unix_nano = 7; // when rtl_remote read the frame from USB
+  optional uint64 first_sample = 1;  // index of first complex sample since stream start
+  optional uint32 count = 2;         // complex samples in this frame
+  optional uint32 bits = 3;          // bits per component, 1..8
+  optional float step = 4;           // quantizer step in u8 units (bits < 8)
+  optional uint64 settings_gen = 5;  // incremented by every Configure that changed tuning
+  optional bytes data = 6;           // packed codes, I and Q interleaved
+  optional int64 captured_unix_nano = 7; // when rtl_remote read the frame from USB
 }
 ```
 
@@ -338,7 +338,7 @@ installed `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`.
 
 Correct any of these:
 
-- One `Configure` RPC relying on explicit field presence (edition 2023) instead of one RPC per
+- One `Configure` RPC relying on explicit field presence (proto3 `optional`) instead of one RPC per
   setting.
 - Requantization per frame with a symmetric uniform quantizer, step
   floor 1 so quiet signals stay lossless; default `min_bits` 2.

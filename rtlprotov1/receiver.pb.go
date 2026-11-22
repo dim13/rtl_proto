@@ -171,17 +171,17 @@ func (*InfoRequest) Descriptor() ([]byte, []int) {
 type DeviceInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Detected tuner chip.
-	Tuner *TunerType `protobuf:"varint,1,opt,name=tuner,enum=rtlproto.v1.TunerType" json:"tuner,omitempty"`
+	Tuner *TunerType `protobuf:"varint,1,opt,name=tuner,proto3,enum=rtlproto.v1.TunerType,oneof" json:"tuner,omitempty"`
 	// Board is an RTL-SDR Blog V4 (HF through upconverter).
-	BlogV4 *bool `protobuf:"varint,2,opt,name=blog_v4,json=blogV4" json:"blog_v4,omitempty"`
+	BlogV4 *bool `protobuf:"varint,2,opt,name=blog_v4,json=blogV4,proto3,oneof" json:"blog_v4,omitempty"`
 	// Gain table in tenths of dB, ascending.
-	GainsTenthDb []int32 `protobuf:"varint,3,rep,packed,name=gains_tenth_db,json=gainsTenthDb" json:"gains_tenth_db,omitempty"`
+	GainsTenthDb []int32 `protobuf:"varint,3,rep,packed,name=gains_tenth_db,json=gainsTenthDb,proto3" json:"gains_tenth_db,omitempty"`
 	// USB manufacturer string.
-	Manufacturer *string `protobuf:"bytes,4,opt,name=manufacturer" json:"manufacturer,omitempty"`
+	Manufacturer *string `protobuf:"bytes,4,opt,name=manufacturer,proto3,oneof" json:"manufacturer,omitempty"`
 	// USB product string.
-	Product *string `protobuf:"bytes,5,opt,name=product" json:"product,omitempty"`
+	Product *string `protobuf:"bytes,5,opt,name=product,proto3,oneof" json:"product,omitempty"`
 	// Current device state.
-	Current       *Settings `protobuf:"bytes,6,opt,name=current" json:"current,omitempty"`
+	Current       *Settings `protobuf:"bytes,6,opt,name=current,proto3" json:"current,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -258,28 +258,28 @@ func (x *DeviceInfo) GetCurrent() *Settings {
 	return nil
 }
 
-// Explicit presence: unset fields are left unchanged.
+// Unset fields are left unchanged.
 type Settings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Center frequency in Hz.
-	FrequencyHz *uint64 `protobuf:"varint,1,opt,name=frequency_hz,json=frequencyHz" json:"frequency_hz,omitempty"`
+	FrequencyHz *uint64 `protobuf:"varint,1,opt,name=frequency_hz,json=frequencyHz,proto3,oneof" json:"frequency_hz,omitempty"`
 	// Sample rate in Hz, as requested.
-	SampleRateHz *uint32 `protobuf:"varint,2,opt,name=sample_rate_hz,json=sampleRateHz" json:"sample_rate_hz,omitempty"`
+	SampleRateHz *uint32 `protobuf:"varint,2,opt,name=sample_rate_hz,json=sampleRateHz,proto3,oneof" json:"sample_rate_hz,omitempty"`
 	// Sample rate actually achieved, in Hz. Reply only.
-	SampleRateExactHz *float64 `protobuf:"fixed64,3,opt,name=sample_rate_exact_hz,json=sampleRateExactHz" json:"sample_rate_exact_hz,omitempty"`
+	SampleRateExactHz *float64 `protobuf:"fixed64,3,opt,name=sample_rate_exact_hz,json=sampleRateExactHz,proto3,oneof" json:"sample_rate_exact_hz,omitempty"`
 	// Crystal correction in ppm.
-	Ppm *int32 `protobuf:"zigzag32,4,opt,name=ppm" json:"ppm,omitempty"`
+	Ppm *int32 `protobuf:"zigzag32,4,opt,name=ppm,proto3,oneof" json:"ppm,omitempty"`
 	// Manual tuner gain instead of tuner AGC.
-	GainManual *bool `protobuf:"varint,5,opt,name=gain_manual,json=gainManual" json:"gain_manual,omitempty"`
+	GainManual *bool `protobuf:"varint,5,opt,name=gain_manual,json=gainManual,proto3,oneof" json:"gain_manual,omitempty"`
 	// Tuner gain in tenths of dB, one of DeviceInfo.gains_tenth_db.
 	// Implies manual gain.
-	GainTenthDb *int32 `protobuf:"zigzag32,6,opt,name=gain_tenth_db,json=gainTenthDb" json:"gain_tenth_db,omitempty"`
+	GainTenthDb *int32 `protobuf:"zigzag32,6,opt,name=gain_tenth_db,json=gainTenthDb,proto3,oneof" json:"gain_tenth_db,omitempty"`
 	// Demodulator digital AGC.
-	Agc *bool `protobuf:"varint,7,opt,name=agc" json:"agc,omitempty"`
+	Agc *bool `protobuf:"varint,7,opt,name=agc,proto3,oneof" json:"agc,omitempty"`
 	// DC power on the antenna input.
-	BiasTee *bool `protobuf:"varint,8,opt,name=bias_tee,json=biasTee" json:"bias_tee,omitempty"`
+	BiasTee *bool `protobuf:"varint,8,opt,name=bias_tee,json=biasTee,proto3,oneof" json:"bias_tee,omitempty"`
 	// Direct sampling mode.
-	DirectSampling *DirectSampling `protobuf:"varint,9,opt,name=direct_sampling,json=directSampling,enum=rtlproto.v1.DirectSampling" json:"direct_sampling,omitempty"`
+	DirectSampling *DirectSampling `protobuf:"varint,9,opt,name=direct_sampling,json=directSampling,proto3,enum=rtlproto.v1.DirectSampling,oneof" json:"direct_sampling,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -380,9 +380,9 @@ func (x *Settings) GetDirectSampling() DirectSampling {
 type StreamRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Lowest bits per component the remote may use, 1..8; 0 means 2.
-	MinBits *uint32 `protobuf:"varint,1,opt,name=min_bits,json=minBits" json:"min_bits,omitempty"`
+	MinBits *uint32 `protobuf:"varint,1,opt,name=min_bits,json=minBits,proto3,oneof" json:"min_bits,omitempty"`
 	// Highest bits per component, 1..8; 0 means 8.
-	MaxBits       *uint32 `protobuf:"varint,2,opt,name=max_bits,json=maxBits" json:"max_bits,omitempty"`
+	MaxBits       *uint32 `protobuf:"varint,2,opt,name=max_bits,json=maxBits,proto3,oneof" json:"max_bits,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -434,19 +434,19 @@ func (x *StreamRequest) GetMaxBits() uint32 {
 type Frame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Index of the first complex sample since the stream started.
-	FirstSample *uint64 `protobuf:"varint,1,opt,name=first_sample,json=firstSample" json:"first_sample,omitempty"`
+	FirstSample *uint64 `protobuf:"varint,1,opt,name=first_sample,json=firstSample,proto3,oneof" json:"first_sample,omitempty"`
 	// Complex samples in this frame.
-	Count *uint32 `protobuf:"varint,2,opt,name=count" json:"count,omitempty"`
+	Count *uint32 `protobuf:"varint,2,opt,name=count,proto3,oneof" json:"count,omitempty"`
 	// Bits per component, 1..8. At 8, data is raw u8 I/Q.
-	Bits *uint32 `protobuf:"varint,3,opt,name=bits" json:"bits,omitempty"`
+	Bits *uint32 `protobuf:"varint,3,opt,name=bits,proto3,oneof" json:"bits,omitempty"`
 	// Quantizer step in u8 units, for bits < 8.
-	Step *float32 `protobuf:"fixed32,4,opt,name=step" json:"step,omitempty"`
+	Step *float32 `protobuf:"fixed32,4,opt,name=step,proto3,oneof" json:"step,omitempty"`
 	// Incremented by every Configure that changed tuning.
-	SettingsGen *uint64 `protobuf:"varint,5,opt,name=settings_gen,json=settingsGen" json:"settings_gen,omitempty"`
+	SettingsGen *uint64 `protobuf:"varint,5,opt,name=settings_gen,json=settingsGen,proto3,oneof" json:"settings_gen,omitempty"`
 	// Packed codes, I and Q interleaved, MSB first.
-	Data []byte `protobuf:"bytes,6,opt,name=data" json:"data,omitempty"`
+	Data []byte `protobuf:"bytes,6,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	// When the remote read the frame from USB.
-	CapturedUnixNano *int64 `protobuf:"varint,7,opt,name=captured_unix_nano,json=capturedUnixNano" json:"captured_unix_nano,omitempty"`
+	CapturedUnixNano *int64 `protobuf:"varint,7,opt,name=captured_unix_nano,json=capturedUnixNano,proto3,oneof" json:"captured_unix_nano,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -535,37 +535,61 @@ var File_rtlproto_v1_receiver_proto protoreflect.FileDescriptor
 const file_rtlproto_v1_receiver_proto_rawDesc = "" +
 	"\n" +
 	"\x1artlproto/v1/receiver.proto\x12\vrtlproto.v1\"\r\n" +
-	"\vInfoRequest\"\xe8\x01\n" +
+	"\vInfoRequest\"\xaf\x02\n" +
 	"\n" +
-	"DeviceInfo\x12,\n" +
-	"\x05tuner\x18\x01 \x01(\x0e2\x16.rtlproto.v1.TunerTypeR\x05tuner\x12\x17\n" +
-	"\ablog_v4\x18\x02 \x01(\bR\x06blogV4\x12$\n" +
-	"\x0egains_tenth_db\x18\x03 \x03(\x05R\fgainsTenthDb\x12\"\n" +
-	"\fmanufacturer\x18\x04 \x01(\tR\fmanufacturer\x12\x18\n" +
-	"\aproduct\x18\x05 \x01(\tR\aproduct\x12/\n" +
-	"\acurrent\x18\x06 \x01(\v2\x15.rtlproto.v1.SettingsR\acurrent\"\xce\x02\n" +
-	"\bSettings\x12!\n" +
-	"\ffrequency_hz\x18\x01 \x01(\x04R\vfrequencyHz\x12$\n" +
-	"\x0esample_rate_hz\x18\x02 \x01(\rR\fsampleRateHz\x12/\n" +
-	"\x14sample_rate_exact_hz\x18\x03 \x01(\x01R\x11sampleRateExactHz\x12\x10\n" +
-	"\x03ppm\x18\x04 \x01(\x11R\x03ppm\x12\x1f\n" +
-	"\vgain_manual\x18\x05 \x01(\bR\n" +
-	"gainManual\x12\"\n" +
-	"\rgain_tenth_db\x18\x06 \x01(\x11R\vgainTenthDb\x12\x10\n" +
-	"\x03agc\x18\a \x01(\bR\x03agc\x12\x19\n" +
-	"\bbias_tee\x18\b \x01(\bR\abiasTee\x12D\n" +
-	"\x0fdirect_sampling\x18\t \x01(\x0e2\x1b.rtlproto.v1.DirectSamplingR\x0edirectSampling\"E\n" +
-	"\rStreamRequest\x12\x19\n" +
-	"\bmin_bits\x18\x01 \x01(\rR\aminBits\x12\x19\n" +
-	"\bmax_bits\x18\x02 \x01(\rR\amaxBits\"\xcd\x01\n" +
-	"\x05Frame\x12!\n" +
-	"\ffirst_sample\x18\x01 \x01(\x04R\vfirstSample\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\rR\x05count\x12\x12\n" +
-	"\x04bits\x18\x03 \x01(\rR\x04bits\x12\x12\n" +
-	"\x04step\x18\x04 \x01(\x02R\x04step\x12!\n" +
-	"\fsettings_gen\x18\x05 \x01(\x04R\vsettingsGen\x12\x12\n" +
-	"\x04data\x18\x06 \x01(\fR\x04data\x12,\n" +
-	"\x12captured_unix_nano\x18\a \x01(\x03R\x10capturedUnixNano*\xaa\x01\n" +
+	"DeviceInfo\x121\n" +
+	"\x05tuner\x18\x01 \x01(\x0e2\x16.rtlproto.v1.TunerTypeH\x00R\x05tuner\x88\x01\x01\x12\x1c\n" +
+	"\ablog_v4\x18\x02 \x01(\bH\x01R\x06blogV4\x88\x01\x01\x12$\n" +
+	"\x0egains_tenth_db\x18\x03 \x03(\x05R\fgainsTenthDb\x12'\n" +
+	"\fmanufacturer\x18\x04 \x01(\tH\x02R\fmanufacturer\x88\x01\x01\x12\x1d\n" +
+	"\aproduct\x18\x05 \x01(\tH\x03R\aproduct\x88\x01\x01\x12/\n" +
+	"\acurrent\x18\x06 \x01(\v2\x15.rtlproto.v1.SettingsR\acurrentB\b\n" +
+	"\x06_tunerB\n" +
+	"\n" +
+	"\b_blog_v4B\x0f\n" +
+	"\r_manufacturerB\n" +
+	"\n" +
+	"\b_product\"\x8b\x04\n" +
+	"\bSettings\x12&\n" +
+	"\ffrequency_hz\x18\x01 \x01(\x04H\x00R\vfrequencyHz\x88\x01\x01\x12)\n" +
+	"\x0esample_rate_hz\x18\x02 \x01(\rH\x01R\fsampleRateHz\x88\x01\x01\x124\n" +
+	"\x14sample_rate_exact_hz\x18\x03 \x01(\x01H\x02R\x11sampleRateExactHz\x88\x01\x01\x12\x15\n" +
+	"\x03ppm\x18\x04 \x01(\x11H\x03R\x03ppm\x88\x01\x01\x12$\n" +
+	"\vgain_manual\x18\x05 \x01(\bH\x04R\n" +
+	"gainManual\x88\x01\x01\x12'\n" +
+	"\rgain_tenth_db\x18\x06 \x01(\x11H\x05R\vgainTenthDb\x88\x01\x01\x12\x15\n" +
+	"\x03agc\x18\a \x01(\bH\x06R\x03agc\x88\x01\x01\x12\x1e\n" +
+	"\bbias_tee\x18\b \x01(\bH\aR\abiasTee\x88\x01\x01\x12I\n" +
+	"\x0fdirect_sampling\x18\t \x01(\x0e2\x1b.rtlproto.v1.DirectSamplingH\bR\x0edirectSampling\x88\x01\x01B\x0f\n" +
+	"\r_frequency_hzB\x11\n" +
+	"\x0f_sample_rate_hzB\x17\n" +
+	"\x15_sample_rate_exact_hzB\x06\n" +
+	"\x04_ppmB\x0e\n" +
+	"\f_gain_manualB\x10\n" +
+	"\x0e_gain_tenth_dbB\x06\n" +
+	"\x04_agcB\v\n" +
+	"\t_bias_teeB\x12\n" +
+	"\x10_direct_sampling\"i\n" +
+	"\rStreamRequest\x12\x1e\n" +
+	"\bmin_bits\x18\x01 \x01(\rH\x00R\aminBits\x88\x01\x01\x12\x1e\n" +
+	"\bmax_bits\x18\x02 \x01(\rH\x01R\amaxBits\x88\x01\x01B\v\n" +
+	"\t_min_bitsB\v\n" +
+	"\t_max_bits\"\xce\x02\n" +
+	"\x05Frame\x12&\n" +
+	"\ffirst_sample\x18\x01 \x01(\x04H\x00R\vfirstSample\x88\x01\x01\x12\x19\n" +
+	"\x05count\x18\x02 \x01(\rH\x01R\x05count\x88\x01\x01\x12\x17\n" +
+	"\x04bits\x18\x03 \x01(\rH\x02R\x04bits\x88\x01\x01\x12\x17\n" +
+	"\x04step\x18\x04 \x01(\x02H\x03R\x04step\x88\x01\x01\x12&\n" +
+	"\fsettings_gen\x18\x05 \x01(\x04H\x04R\vsettingsGen\x88\x01\x01\x12\x17\n" +
+	"\x04data\x18\x06 \x01(\fH\x05R\x04data\x88\x01\x01\x121\n" +
+	"\x12captured_unix_nano\x18\a \x01(\x03H\x06R\x10capturedUnixNano\x88\x01\x01B\x0f\n" +
+	"\r_first_sampleB\b\n" +
+	"\x06_countB\a\n" +
+	"\x05_bitsB\a\n" +
+	"\x05_stepB\x0f\n" +
+	"\r_settings_genB\a\n" +
+	"\x05_dataB\x15\n" +
+	"\x13_captured_unix_nano*\xaa\x01\n" +
 	"\tTunerType\x12\x16\n" +
 	"\x12TUNER_TYPE_UNKNOWN\x10\x00\x12\x14\n" +
 	"\x10TUNER_TYPE_E4000\x10\x01\x12\x15\n" +
@@ -581,7 +605,7 @@ const file_rtlproto_v1_receiver_proto_rawDesc = "" +
 	"\bReceiver\x129\n" +
 	"\x04Info\x12\x18.rtlproto.v1.InfoRequest\x1a\x17.rtlproto.v1.DeviceInfo\x129\n" +
 	"\tConfigure\x12\x15.rtlproto.v1.Settings\x1a\x15.rtlproto.v1.Settings\x12:\n" +
-	"\x06Stream\x12\x1a.rtlproto.v1.StreamRequest\x1a\x12.rtlproto.v1.Frame0\x01B'Z%github.com/dim13/rtl_proto/rtlprotov1b\beditionsp\xe8\a"
+	"\x06Stream\x12\x1a.rtlproto.v1.StreamRequest\x1a\x12.rtlproto.v1.Frame0\x01B'Z%github.com/dim13/rtl_proto/rtlprotov1b\x06proto3"
 
 var (
 	file_rtlproto_v1_receiver_proto_rawDescOnce sync.Once
@@ -628,6 +652,10 @@ func file_rtlproto_v1_receiver_proto_init() {
 	if File_rtlproto_v1_receiver_proto != nil {
 		return
 	}
+	file_rtlproto_v1_receiver_proto_msgTypes[1].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[2].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[3].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
