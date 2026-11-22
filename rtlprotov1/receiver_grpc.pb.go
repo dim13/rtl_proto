@@ -22,6 +22,8 @@ const (
 	Receiver_Info_FullMethodName      = "/rtlproto.v1.Receiver/Info"
 	Receiver_Configure_FullMethodName = "/rtlproto.v1.Receiver/Configure"
 	Receiver_Stream_FullMethodName    = "/rtlproto.v1.Receiver/Stream"
+	Receiver_Spectrum_FullMethodName  = "/rtlproto.v1.Receiver/Spectrum"
+	Receiver_Channel_FullMethodName   = "/rtlproto.v1.Receiver/Channel"
 )
 
 // ReceiverClient is the client API for Receiver service.
@@ -37,6 +39,12 @@ type ReceiverClient interface {
 	// Sample stream. At most one active stream per remote; a new stream
 	// takes over and the old one ends with ABORTED.
 	Stream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Frame], error)
+	// Power spectrum of the whole tuned band.
+	Spectrum(ctx context.Context, in *SpectrumRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SpectrumLine], error)
+	// Narrowband I/Q around an offset from the center frequency. The
+	// client sends the initial request and then any changes (e.g. a new
+	// offset) on the same stream; the remote applies them without a gap.
+	Channel(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChannelRequest, ChannelFrame], error)
 }
 
 type receiverClient struct {
@@ -86,6 +94,38 @@ func (c *receiverClient) Stream(ctx context.Context, in *StreamRequest, opts ...
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Receiver_StreamClient = grpc.ServerStreamingClient[Frame]
 
+func (c *receiverClient) Spectrum(ctx context.Context, in *SpectrumRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SpectrumLine], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Receiver_ServiceDesc.Streams[1], Receiver_Spectrum_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SpectrumRequest, SpectrumLine]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Receiver_SpectrumClient = grpc.ServerStreamingClient[SpectrumLine]
+
+func (c *receiverClient) Channel(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChannelRequest, ChannelFrame], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Receiver_ServiceDesc.Streams[2], Receiver_Channel_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ChannelRequest, ChannelFrame]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Receiver_ChannelClient = grpc.BidiStreamingClient[ChannelRequest, ChannelFrame]
+
 // ReceiverServer is the server API for Receiver service.
 // All implementations must embed UnimplementedReceiverServer
 // for forward compatibility.
@@ -99,6 +139,12 @@ type ReceiverServer interface {
 	// Sample stream. At most one active stream per remote; a new stream
 	// takes over and the old one ends with ABORTED.
 	Stream(*StreamRequest, grpc.ServerStreamingServer[Frame]) error
+	// Power spectrum of the whole tuned band.
+	Spectrum(*SpectrumRequest, grpc.ServerStreamingServer[SpectrumLine]) error
+	// Narrowband I/Q around an offset from the center frequency. The
+	// client sends the initial request and then any changes (e.g. a new
+	// offset) on the same stream; the remote applies them without a gap.
+	Channel(grpc.BidiStreamingServer[ChannelRequest, ChannelFrame]) error
 	mustEmbedUnimplementedReceiverServer()
 }
 
@@ -117,6 +163,12 @@ func (UnimplementedReceiverServer) Configure(context.Context, *Settings) (*Setti
 }
 func (UnimplementedReceiverServer) Stream(*StreamRequest, grpc.ServerStreamingServer[Frame]) error {
 	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedReceiverServer) Spectrum(*SpectrumRequest, grpc.ServerStreamingServer[SpectrumLine]) error {
+	return status.Errorf(codes.Unimplemented, "method Spectrum not implemented")
+}
+func (UnimplementedReceiverServer) Channel(grpc.BidiStreamingServer[ChannelRequest, ChannelFrame]) error {
+	return status.Errorf(codes.Unimplemented, "method Channel not implemented")
 }
 func (UnimplementedReceiverServer) mustEmbedUnimplementedReceiverServer() {}
 func (UnimplementedReceiverServer) testEmbeddedByValue()                  {}
@@ -186,6 +238,24 @@ func _Receiver_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Receiver_StreamServer = grpc.ServerStreamingServer[Frame]
 
+func _Receiver_Spectrum_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SpectrumRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ReceiverServer).Spectrum(m, &grpc.GenericServerStream[SpectrumRequest, SpectrumLine]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Receiver_SpectrumServer = grpc.ServerStreamingServer[SpectrumLine]
+
+func _Receiver_Channel_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ReceiverServer).Channel(&grpc.GenericServerStream[ChannelRequest, ChannelFrame]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Receiver_ChannelServer = grpc.BidiStreamingServer[ChannelRequest, ChannelFrame]
+
 // Receiver_ServiceDesc is the grpc.ServiceDesc for Receiver service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -207,6 +277,17 @@ var Receiver_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Stream",
 			Handler:       _Receiver_Stream_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "Spectrum",
+			Handler:       _Receiver_Spectrum_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Channel",
+			Handler:       _Receiver_Channel_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "rtlproto/v1/receiver.proto",

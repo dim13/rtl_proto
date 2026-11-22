@@ -13,6 +13,12 @@ service Receiver {
   // Sample stream. At most one active stream per remote; a new stream
   // takes over and the old one ends with ABORTED.
   rpc Stream(StreamRequest) returns (stream Frame);
+  // Power spectrum of the whole tuned band.
+  rpc Spectrum(SpectrumRequest) returns (stream SpectrumLine);
+  // Narrowband I/Q around an offset from the center frequency. The
+  // client sends the initial request and then any changes (e.g. a new
+  // offset) on the same stream; the remote applies them without a gap.
+  rpc Channel(stream ChannelRequest) returns (stream ChannelFrame);
 }
 
 message InfoRequest {}
@@ -94,4 +100,52 @@ message Frame {
   optional bytes data = 6;
   // When the remote read the frame from USB.
   optional int64 captured_unix_nano = 7;
+}
+
+message SpectrumRequest {
+  // FFT size, power of two 64..65536; 0 means 2048.
+  optional uint32 bins = 1;
+  // Lines per second, 1..60; 0 means 25.
+  optional uint32 lines_per_second = 2;
+}
+
+message SpectrumLine {
+  // Tuned frequency for this line.
+  optional uint64 center_hz = 1;
+  // Span of the line.
+  optional uint32 sample_rate_hz = 2;
+  // As Frame.settings_gen.
+  optional uint64 settings_gen = 3;
+  // When the remote read the last frame of this line from USB.
+  optional int64 captured_unix_nano = 4;
+  // One byte per bin, lowest frequency first (DC in the middle). Value v
+  // means (v / 2) - 127.5 dBFS: 0.5 dB steps over -127.5..0.
+  optional bytes power = 5;
+}
+
+message ChannelRequest {
+  // Offset from the center frequency, within ±rate/2.
+  optional sint64 offset_hz = 1;
+  // Output rate; the device rate must be an integer multiple of it.
+  optional uint32 sample_rate_hz = 2;
+  // Filter passband (two-sided); 0 means 0.8 × rate.
+  optional uint32 bandwidth_hz = 3;
+}
+
+message ChannelFrame {
+  // Index of the first output sample since the stream started.
+  optional uint64 first_sample = 1;
+  // Complex samples in this frame.
+  optional uint32 count = 2;
+  // Output rate.
+  optional uint32 sample_rate_hz = 3;
+  // Offset in effect for these samples.
+  optional sint64 offset_hz = 4;
+  // As Frame.settings_gen.
+  optional uint64 settings_gen = 5;
+  // When the remote read the last input frame from USB.
+  optional int64 captured_unix_nano = 6;
+  // int16 little-endian, I and Q interleaved; 32767 equals the full
+  // scale of the u8 input (±127.5).
+  optional bytes iq = 7;
 }

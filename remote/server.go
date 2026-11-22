@@ -44,6 +44,8 @@ type Server struct {
 
 	smu    sync.Mutex // guards active
 	active *session
+
+	spectra, channels limit
 }
 
 // session is one running Stream.

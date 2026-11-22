@@ -530,6 +530,305 @@ func (x *Frame) GetCapturedUnixNano() int64 {
 	return 0
 }
 
+type SpectrumRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FFT size, power of two 64..65536; 0 means 2048.
+	Bins *uint32 `protobuf:"varint,1,opt,name=bins,proto3,oneof" json:"bins,omitempty"`
+	// Lines per second, 1..60; 0 means 25.
+	LinesPerSecond *uint32 `protobuf:"varint,2,opt,name=lines_per_second,json=linesPerSecond,proto3,oneof" json:"lines_per_second,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SpectrumRequest) Reset() {
+	*x = SpectrumRequest{}
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpectrumRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpectrumRequest) ProtoMessage() {}
+
+func (x *SpectrumRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpectrumRequest.ProtoReflect.Descriptor instead.
+func (*SpectrumRequest) Descriptor() ([]byte, []int) {
+	return file_rtlproto_v1_receiver_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SpectrumRequest) GetBins() uint32 {
+	if x != nil && x.Bins != nil {
+		return *x.Bins
+	}
+	return 0
+}
+
+func (x *SpectrumRequest) GetLinesPerSecond() uint32 {
+	if x != nil && x.LinesPerSecond != nil {
+		return *x.LinesPerSecond
+	}
+	return 0
+}
+
+type SpectrumLine struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tuned frequency for this line.
+	CenterHz *uint64 `protobuf:"varint,1,opt,name=center_hz,json=centerHz,proto3,oneof" json:"center_hz,omitempty"`
+	// Span of the line.
+	SampleRateHz *uint32 `protobuf:"varint,2,opt,name=sample_rate_hz,json=sampleRateHz,proto3,oneof" json:"sample_rate_hz,omitempty"`
+	// As Frame.settings_gen.
+	SettingsGen *uint64 `protobuf:"varint,3,opt,name=settings_gen,json=settingsGen,proto3,oneof" json:"settings_gen,omitempty"`
+	// When the remote read the last frame of this line from USB.
+	CapturedUnixNano *int64 `protobuf:"varint,4,opt,name=captured_unix_nano,json=capturedUnixNano,proto3,oneof" json:"captured_unix_nano,omitempty"`
+	// One byte per bin, lowest frequency first (DC in the middle). Value v
+	// means (v / 2) - 127.5 dBFS: 0.5 dB steps over -127.5..0.
+	Power         []byte `protobuf:"bytes,5,opt,name=power,proto3,oneof" json:"power,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpectrumLine) Reset() {
+	*x = SpectrumLine{}
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpectrumLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpectrumLine) ProtoMessage() {}
+
+func (x *SpectrumLine) ProtoReflect() protoreflect.Message {
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpectrumLine.ProtoReflect.Descriptor instead.
+func (*SpectrumLine) Descriptor() ([]byte, []int) {
+	return file_rtlproto_v1_receiver_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SpectrumLine) GetCenterHz() uint64 {
+	if x != nil && x.CenterHz != nil {
+		return *x.CenterHz
+	}
+	return 0
+}
+
+func (x *SpectrumLine) GetSampleRateHz() uint32 {
+	if x != nil && x.SampleRateHz != nil {
+		return *x.SampleRateHz
+	}
+	return 0
+}
+
+func (x *SpectrumLine) GetSettingsGen() uint64 {
+	if x != nil && x.SettingsGen != nil {
+		return *x.SettingsGen
+	}
+	return 0
+}
+
+func (x *SpectrumLine) GetCapturedUnixNano() int64 {
+	if x != nil && x.CapturedUnixNano != nil {
+		return *x.CapturedUnixNano
+	}
+	return 0
+}
+
+func (x *SpectrumLine) GetPower() []byte {
+	if x != nil {
+		return x.Power
+	}
+	return nil
+}
+
+type ChannelRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Offset from the center frequency, within ±rate/2.
+	OffsetHz *int64 `protobuf:"zigzag64,1,opt,name=offset_hz,json=offsetHz,proto3,oneof" json:"offset_hz,omitempty"`
+	// Output rate; the device rate must be an integer multiple of it.
+	SampleRateHz *uint32 `protobuf:"varint,2,opt,name=sample_rate_hz,json=sampleRateHz,proto3,oneof" json:"sample_rate_hz,omitempty"`
+	// Filter passband (two-sided); 0 means 0.8 × rate.
+	BandwidthHz   *uint32 `protobuf:"varint,3,opt,name=bandwidth_hz,json=bandwidthHz,proto3,oneof" json:"bandwidth_hz,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChannelRequest) Reset() {
+	*x = ChannelRequest{}
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChannelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelRequest) ProtoMessage() {}
+
+func (x *ChannelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelRequest.ProtoReflect.Descriptor instead.
+func (*ChannelRequest) Descriptor() ([]byte, []int) {
+	return file_rtlproto_v1_receiver_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ChannelRequest) GetOffsetHz() int64 {
+	if x != nil && x.OffsetHz != nil {
+		return *x.OffsetHz
+	}
+	return 0
+}
+
+func (x *ChannelRequest) GetSampleRateHz() uint32 {
+	if x != nil && x.SampleRateHz != nil {
+		return *x.SampleRateHz
+	}
+	return 0
+}
+
+func (x *ChannelRequest) GetBandwidthHz() uint32 {
+	if x != nil && x.BandwidthHz != nil {
+		return *x.BandwidthHz
+	}
+	return 0
+}
+
+type ChannelFrame struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Index of the first output sample since the stream started.
+	FirstSample *uint64 `protobuf:"varint,1,opt,name=first_sample,json=firstSample,proto3,oneof" json:"first_sample,omitempty"`
+	// Complex samples in this frame.
+	Count *uint32 `protobuf:"varint,2,opt,name=count,proto3,oneof" json:"count,omitempty"`
+	// Output rate.
+	SampleRateHz *uint32 `protobuf:"varint,3,opt,name=sample_rate_hz,json=sampleRateHz,proto3,oneof" json:"sample_rate_hz,omitempty"`
+	// Offset in effect for these samples.
+	OffsetHz *int64 `protobuf:"zigzag64,4,opt,name=offset_hz,json=offsetHz,proto3,oneof" json:"offset_hz,omitempty"`
+	// As Frame.settings_gen.
+	SettingsGen *uint64 `protobuf:"varint,5,opt,name=settings_gen,json=settingsGen,proto3,oneof" json:"settings_gen,omitempty"`
+	// When the remote read the last input frame from USB.
+	CapturedUnixNano *int64 `protobuf:"varint,6,opt,name=captured_unix_nano,json=capturedUnixNano,proto3,oneof" json:"captured_unix_nano,omitempty"`
+	// int16 little-endian, I and Q interleaved; 32767 equals the full
+	// scale of the u8 input (±127.5).
+	Iq            []byte `protobuf:"bytes,7,opt,name=iq,proto3,oneof" json:"iq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChannelFrame) Reset() {
+	*x = ChannelFrame{}
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChannelFrame) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelFrame) ProtoMessage() {}
+
+func (x *ChannelFrame) ProtoReflect() protoreflect.Message {
+	mi := &file_rtlproto_v1_receiver_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelFrame.ProtoReflect.Descriptor instead.
+func (*ChannelFrame) Descriptor() ([]byte, []int) {
+	return file_rtlproto_v1_receiver_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ChannelFrame) GetFirstSample() uint64 {
+	if x != nil && x.FirstSample != nil {
+		return *x.FirstSample
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetCount() uint32 {
+	if x != nil && x.Count != nil {
+		return *x.Count
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetSampleRateHz() uint32 {
+	if x != nil && x.SampleRateHz != nil {
+		return *x.SampleRateHz
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetOffsetHz() int64 {
+	if x != nil && x.OffsetHz != nil {
+		return *x.OffsetHz
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetSettingsGen() uint64 {
+	if x != nil && x.SettingsGen != nil {
+		return *x.SettingsGen
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetCapturedUnixNano() int64 {
+	if x != nil && x.CapturedUnixNano != nil {
+		return *x.CapturedUnixNano
+	}
+	return 0
+}
+
+func (x *ChannelFrame) GetIq() []byte {
+	if x != nil {
+		return x.Iq
+	}
+	return nil
+}
+
 var File_rtlproto_v1_receiver_proto protoreflect.FileDescriptor
 
 const file_rtlproto_v1_receiver_proto_rawDesc = "" +
@@ -589,7 +888,48 @@ const file_rtlproto_v1_receiver_proto_rawDesc = "" +
 	"\x05_stepB\x0f\n" +
 	"\r_settings_genB\a\n" +
 	"\x05_dataB\x15\n" +
-	"\x13_captured_unix_nano*\xaa\x01\n" +
+	"\x13_captured_unix_nano\"w\n" +
+	"\x0fSpectrumRequest\x12\x17\n" +
+	"\x04bins\x18\x01 \x01(\rH\x00R\x04bins\x88\x01\x01\x12-\n" +
+	"\x10lines_per_second\x18\x02 \x01(\rH\x01R\x0elinesPerSecond\x88\x01\x01B\a\n" +
+	"\x05_binsB\x13\n" +
+	"\x11_lines_per_second\"\xa4\x02\n" +
+	"\fSpectrumLine\x12 \n" +
+	"\tcenter_hz\x18\x01 \x01(\x04H\x00R\bcenterHz\x88\x01\x01\x12)\n" +
+	"\x0esample_rate_hz\x18\x02 \x01(\rH\x01R\fsampleRateHz\x88\x01\x01\x12&\n" +
+	"\fsettings_gen\x18\x03 \x01(\x04H\x02R\vsettingsGen\x88\x01\x01\x121\n" +
+	"\x12captured_unix_nano\x18\x04 \x01(\x03H\x03R\x10capturedUnixNano\x88\x01\x01\x12\x19\n" +
+	"\x05power\x18\x05 \x01(\fH\x04R\x05power\x88\x01\x01B\f\n" +
+	"\n" +
+	"_center_hzB\x11\n" +
+	"\x0f_sample_rate_hzB\x0f\n" +
+	"\r_settings_genB\x15\n" +
+	"\x13_captured_unix_nanoB\b\n" +
+	"\x06_power\"\xb7\x01\n" +
+	"\x0eChannelRequest\x12 \n" +
+	"\toffset_hz\x18\x01 \x01(\x12H\x00R\boffsetHz\x88\x01\x01\x12)\n" +
+	"\x0esample_rate_hz\x18\x02 \x01(\rH\x01R\fsampleRateHz\x88\x01\x01\x12&\n" +
+	"\fbandwidth_hz\x18\x03 \x01(\rH\x02R\vbandwidthHz\x88\x01\x01B\f\n" +
+	"\n" +
+	"_offset_hzB\x11\n" +
+	"\x0f_sample_rate_hzB\x0f\n" +
+	"\r_bandwidth_hz\"\xf9\x02\n" +
+	"\fChannelFrame\x12&\n" +
+	"\ffirst_sample\x18\x01 \x01(\x04H\x00R\vfirstSample\x88\x01\x01\x12\x19\n" +
+	"\x05count\x18\x02 \x01(\rH\x01R\x05count\x88\x01\x01\x12)\n" +
+	"\x0esample_rate_hz\x18\x03 \x01(\rH\x02R\fsampleRateHz\x88\x01\x01\x12 \n" +
+	"\toffset_hz\x18\x04 \x01(\x12H\x03R\boffsetHz\x88\x01\x01\x12&\n" +
+	"\fsettings_gen\x18\x05 \x01(\x04H\x04R\vsettingsGen\x88\x01\x01\x121\n" +
+	"\x12captured_unix_nano\x18\x06 \x01(\x03H\x05R\x10capturedUnixNano\x88\x01\x01\x12\x13\n" +
+	"\x02iq\x18\a \x01(\fH\x06R\x02iq\x88\x01\x01B\x0f\n" +
+	"\r_first_sampleB\b\n" +
+	"\x06_countB\x11\n" +
+	"\x0f_sample_rate_hzB\f\n" +
+	"\n" +
+	"_offset_hzB\x0f\n" +
+	"\r_settings_genB\x15\n" +
+	"\x13_captured_unix_nanoB\x05\n" +
+	"\x03_iq*\xaa\x01\n" +
 	"\tTunerType\x12\x16\n" +
 	"\x12TUNER_TYPE_UNKNOWN\x10\x00\x12\x14\n" +
 	"\x10TUNER_TYPE_E4000\x10\x01\x12\x15\n" +
@@ -601,11 +941,13 @@ const file_rtlproto_v1_receiver_proto_rawDesc = "" +
 	"\x0eDirectSampling\x12\x17\n" +
 	"\x13DIRECT_SAMPLING_OFF\x10\x00\x12\x15\n" +
 	"\x11DIRECT_SAMPLING_I\x10\x01\x12\x15\n" +
-	"\x11DIRECT_SAMPLING_Q\x10\x022\xbc\x01\n" +
+	"\x11DIRECT_SAMPLING_Q\x10\x022\xca\x02\n" +
 	"\bReceiver\x129\n" +
 	"\x04Info\x12\x18.rtlproto.v1.InfoRequest\x1a\x17.rtlproto.v1.DeviceInfo\x129\n" +
 	"\tConfigure\x12\x15.rtlproto.v1.Settings\x1a\x15.rtlproto.v1.Settings\x12:\n" +
-	"\x06Stream\x12\x1a.rtlproto.v1.StreamRequest\x1a\x12.rtlproto.v1.Frame0\x01B'Z%github.com/dim13/rtl_proto/rtlprotov1b\x06proto3"
+	"\x06Stream\x12\x1a.rtlproto.v1.StreamRequest\x1a\x12.rtlproto.v1.Frame0\x01\x12E\n" +
+	"\bSpectrum\x12\x1c.rtlproto.v1.SpectrumRequest\x1a\x19.rtlproto.v1.SpectrumLine0\x01\x12E\n" +
+	"\aChannel\x12\x1b.rtlproto.v1.ChannelRequest\x1a\x19.rtlproto.v1.ChannelFrame(\x010\x01B'Z%github.com/dim13/rtl_proto/rtlprotov1b\x06proto3"
 
 var (
 	file_rtlproto_v1_receiver_proto_rawDescOnce sync.Once
@@ -620,31 +962,39 @@ func file_rtlproto_v1_receiver_proto_rawDescGZIP() []byte {
 }
 
 var file_rtlproto_v1_receiver_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_rtlproto_v1_receiver_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_rtlproto_v1_receiver_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_rtlproto_v1_receiver_proto_goTypes = []any{
-	(TunerType)(0),        // 0: rtlproto.v1.TunerType
-	(DirectSampling)(0),   // 1: rtlproto.v1.DirectSampling
-	(*InfoRequest)(nil),   // 2: rtlproto.v1.InfoRequest
-	(*DeviceInfo)(nil),    // 3: rtlproto.v1.DeviceInfo
-	(*Settings)(nil),      // 4: rtlproto.v1.Settings
-	(*StreamRequest)(nil), // 5: rtlproto.v1.StreamRequest
-	(*Frame)(nil),         // 6: rtlproto.v1.Frame
+	(TunerType)(0),          // 0: rtlproto.v1.TunerType
+	(DirectSampling)(0),     // 1: rtlproto.v1.DirectSampling
+	(*InfoRequest)(nil),     // 2: rtlproto.v1.InfoRequest
+	(*DeviceInfo)(nil),      // 3: rtlproto.v1.DeviceInfo
+	(*Settings)(nil),        // 4: rtlproto.v1.Settings
+	(*StreamRequest)(nil),   // 5: rtlproto.v1.StreamRequest
+	(*Frame)(nil),           // 6: rtlproto.v1.Frame
+	(*SpectrumRequest)(nil), // 7: rtlproto.v1.SpectrumRequest
+	(*SpectrumLine)(nil),    // 8: rtlproto.v1.SpectrumLine
+	(*ChannelRequest)(nil),  // 9: rtlproto.v1.ChannelRequest
+	(*ChannelFrame)(nil),    // 10: rtlproto.v1.ChannelFrame
 }
 var file_rtlproto_v1_receiver_proto_depIdxs = []int32{
-	0, // 0: rtlproto.v1.DeviceInfo.tuner:type_name -> rtlproto.v1.TunerType
-	4, // 1: rtlproto.v1.DeviceInfo.current:type_name -> rtlproto.v1.Settings
-	1, // 2: rtlproto.v1.Settings.direct_sampling:type_name -> rtlproto.v1.DirectSampling
-	2, // 3: rtlproto.v1.Receiver.Info:input_type -> rtlproto.v1.InfoRequest
-	4, // 4: rtlproto.v1.Receiver.Configure:input_type -> rtlproto.v1.Settings
-	5, // 5: rtlproto.v1.Receiver.Stream:input_type -> rtlproto.v1.StreamRequest
-	3, // 6: rtlproto.v1.Receiver.Info:output_type -> rtlproto.v1.DeviceInfo
-	4, // 7: rtlproto.v1.Receiver.Configure:output_type -> rtlproto.v1.Settings
-	6, // 8: rtlproto.v1.Receiver.Stream:output_type -> rtlproto.v1.Frame
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: rtlproto.v1.DeviceInfo.tuner:type_name -> rtlproto.v1.TunerType
+	4,  // 1: rtlproto.v1.DeviceInfo.current:type_name -> rtlproto.v1.Settings
+	1,  // 2: rtlproto.v1.Settings.direct_sampling:type_name -> rtlproto.v1.DirectSampling
+	2,  // 3: rtlproto.v1.Receiver.Info:input_type -> rtlproto.v1.InfoRequest
+	4,  // 4: rtlproto.v1.Receiver.Configure:input_type -> rtlproto.v1.Settings
+	5,  // 5: rtlproto.v1.Receiver.Stream:input_type -> rtlproto.v1.StreamRequest
+	7,  // 6: rtlproto.v1.Receiver.Spectrum:input_type -> rtlproto.v1.SpectrumRequest
+	9,  // 7: rtlproto.v1.Receiver.Channel:input_type -> rtlproto.v1.ChannelRequest
+	3,  // 8: rtlproto.v1.Receiver.Info:output_type -> rtlproto.v1.DeviceInfo
+	4,  // 9: rtlproto.v1.Receiver.Configure:output_type -> rtlproto.v1.Settings
+	6,  // 10: rtlproto.v1.Receiver.Stream:output_type -> rtlproto.v1.Frame
+	8,  // 11: rtlproto.v1.Receiver.Spectrum:output_type -> rtlproto.v1.SpectrumLine
+	10, // 12: rtlproto.v1.Receiver.Channel:output_type -> rtlproto.v1.ChannelFrame
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_rtlproto_v1_receiver_proto_init() }
@@ -656,13 +1006,17 @@ func file_rtlproto_v1_receiver_proto_init() {
 	file_rtlproto_v1_receiver_proto_msgTypes[2].OneofWrappers = []any{}
 	file_rtlproto_v1_receiver_proto_msgTypes[3].OneofWrappers = []any{}
 	file_rtlproto_v1_receiver_proto_msgTypes[4].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[5].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[6].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[7].OneofWrappers = []any{}
+	file_rtlproto_v1_receiver_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rtlproto_v1_receiver_proto_rawDesc), len(file_rtlproto_v1_receiver_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   5,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
