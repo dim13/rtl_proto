@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -15,11 +16,25 @@ type frame struct {
 // queue is a bounded FIFO that drops the oldest frame when full, so
 // what gets sent is always the freshest.
 type queue struct {
-	ch chan frame
+	ch     chan frame
+	once   sync.Once
+	failed chan struct{}
+	err    error
 }
 
 func newQueue(n int) *queue {
-	return &queue{ch: make(chan frame, n)}
+	return &queue{
+		ch:     make(chan frame, n),
+		failed: make(chan struct{}),
+	}
+}
+
+// fail makes get return err once the queued frames are taken.
+func (q *queue) fail(err error) {
+	q.once.Do(func() {
+		q.err = err
+		close(q.failed)
+	})
 }
 
 // put is called by a single producer.
@@ -42,6 +57,13 @@ func (q *queue) get(ctx context.Context) (frame, error) {
 	select {
 	case f := <-q.ch:
 		return f, nil
+	case <-q.failed:
+		select {
+		case f := <-q.ch:
+			return f, nil
+		default:
+			return frame{}, q.err
+		}
 	case <-ctx.Done():
 		return frame{}, ctx.Err()
 	}

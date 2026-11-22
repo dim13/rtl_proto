@@ -3,8 +3,6 @@ package remote
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -22,7 +20,6 @@ import (
 
 var (
 	errSuperseded = errors.New("superseded")
-	errSamples    = errors.New("samples")
 )
 
 // Window is the HTTP/2 flow-control window, pinned on both ends so
@@ -39,6 +36,7 @@ const (
 type Server struct {
 	pb.UnimplementedReceiverServer
 	dev Device
+	hub *hub
 	gen atomic.Uint64 // bumped by tuning changes
 
 	mu sync.Mutex // serializes Configure, guards st
@@ -48,16 +46,15 @@ type Server struct {
 	active *session
 }
 
-// session is one running Stream. done closes once its sample reader
-// has released the device.
+// session is one running Stream.
 type session struct {
 	cancel context.CancelCauseFunc
-	done   chan struct{}
 }
 
 func New(dev Device) *Server {
 	return &Server{
 		dev: dev,
+		hub: newHub(dev),
 		st: &pb.Settings{
 			FrequencyHz:       proto.Uint64(0),
 			SampleRateHz:      proto.Uint32(0),
@@ -206,31 +203,22 @@ func (s *Server) Stream(req *pb.StreamRequest, ss grpc.ServerStreamingServer[pb.
 	ctx, cancel := context.WithCancelCause(ss.Context())
 	defer cancel(nil)
 	me := s.takeover(cancel)
-	if ctx.Err() != nil {
-		s.release(me)
-		return streamErr(ctx)
-	}
-
-	r, err := s.dev.Samples(ctx)
-	if err != nil {
-		s.release(me)
-		return status.Error(codes.Internal, err.Error())
-	}
-	q := newQueue(queueFrames)
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		// Releasing here, not when the handler returns: a handler
-		// stuck in Send must not block the next stream.
-		defer s.release(me)
-		read(ctx, cancel, r, q)
-	})
-	defer wg.Wait()
+	defer s.release(me)
+	q, unsub := s.hub.subscribe(queueFrames)
+	defer unsub()
 
 	ctrl := newController(minBits, maxBits, holdUp)
-	for {
+	var base uint64
+	for n := 0; ; n++ {
 		f, err := q.get(ctx)
 		if err != nil {
+			if ctx.Err() == nil {
+				return status.Error(codes.Internal, err.Error())
+			}
 			return streamErr(ctx)
+		}
+		if n == 0 {
+			base = f.first // first_sample counts from this stream's start
 		}
 		bits := ctrl.update(q.len(), time.Now())
 		data, step, err := codec.Encode(nil, f.raw, bits)
@@ -238,7 +226,7 @@ func (s *Server) Stream(req *pb.StreamRequest, ss grpc.ServerStreamingServer[pb.
 			return status.Error(codes.Internal, err.Error())
 		}
 		out := &pb.Frame{
-			FirstSample:      proto.Uint64(f.first),
+			FirstSample:      proto.Uint64(f.first - base),
 			Count:            proto.Uint32(uint32(len(f.raw) / 2)),
 			Bits:             proto.Uint32(uint32(bits)),
 			SettingsGen:      proto.Uint64(s.gen.Load()),
@@ -254,33 +242,16 @@ func (s *Server) Stream(req *pb.StreamRequest, ss grpc.ServerStreamingServer[pb.
 	}
 }
 
-// read fills frames from rc until ctx ends or rc fails.
-func read(ctx context.Context, cancel context.CancelCauseFunc, rc io.Reader, q *queue) {
-	var first uint64
-	for {
-		raw := make([]byte, FrameBytes)
-		if _, err := io.ReadFull(rc, raw); err != nil {
-			if ctx.Err() == nil {
-				cancel(fmt.Errorf("%w: %v", errSamples, err))
-			}
-			return
-		}
-		q.put(frame{raw: raw, first: first, captured: time.Now()})
-		first += FrameBytes / 2
-	}
-}
-
-// takeover makes a new session active, cancels the previous one and
-// waits until its reader has released the device.
+// takeover makes a new session active and cancels the previous one.
+// The device is shared through the hub, so there is nothing to wait for.
 func (s *Server) takeover(cancel context.CancelCauseFunc) *session {
-	me := &session{cancel: cancel, done: make(chan struct{})}
+	me := &session{cancel: cancel}
 	s.smu.Lock()
 	old := s.active
 	s.active = me
 	s.smu.Unlock()
 	if old != nil {
 		old.cancel(errSuperseded)
-		<-old.done
 	}
 	return me
 }
@@ -291,7 +262,6 @@ func (s *Server) release(me *session) {
 		s.active = nil
 	}
 	s.smu.Unlock()
-	close(me.done)
 }
 
 func streamErr(ctx context.Context) error {
@@ -299,8 +269,6 @@ func streamErr(ctx context.Context) error {
 	switch {
 	case errors.Is(cause, errSuperseded):
 		return status.Error(codes.Aborted, "superseded")
-	case errors.Is(cause, errSamples):
-		return status.Error(codes.Internal, cause.Error())
 	default:
 		return status.FromContextError(ctx.Err()).Err()
 	}

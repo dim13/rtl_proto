@@ -266,7 +266,10 @@ func TestStreamTakeover(t *testing.T) {
 	for range 3 {
 		recv(t, b)
 	}
-	eventually(t, func() bool { return dev.Snapshot().Released == 1 })
+	// The shared reader keeps running for b.
+	if got := dev.Snapshot().Released; got != 0 {
+		t.Errorf("device released %d times while b streams, want 0", got)
+	}
 }
 
 func TestStreamRetune(t *testing.T) {
@@ -331,5 +334,31 @@ func TestConfigurePPMRetunes(t *testing.T) {
 	}
 	if got := dev.Snapshot().Freq; got != 100e6 {
 		t.Errorf("freq: got %v, want 100e6", got)
+	}
+}
+
+func TestStreamAndSecondConsumer(t *testing.T) {
+	dev := &fake.Device{Pace: time.Millisecond}
+	lis := bufconn.Listen(1 << 20)
+	srv := New(dev)
+	s := grpc.NewServer()
+	pb.RegisterReceiverServer(s, srv)
+	go s.Serve(lis)
+	defer s.Stop()
+	cc, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cc.Close()
+	st := openStream(t, pb.NewReceiverClient(cc), &pb.StreamRequest{})
+	q, unsub := srv.hub.subscribe(4)
+	defer unsub()
+	for range 10 {
+		recv(t, st)
+		getFrame(t, q)
 	}
 }
