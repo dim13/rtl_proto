@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"slices"
 	"sync"
 	"time"
@@ -41,6 +42,7 @@ type Device struct {
 	Pace      time.Duration // sleep per 16384 bytes produced
 	FailRate  bool          // SetSampleRate fails
 	FailAfter int           // first reader fails after this many blocks, 0 never
+	Tone      float64       // complex tone in Hz from center instead of the counter, 0 off
 
 	mu     sync.Mutex
 	st     State
@@ -54,6 +56,23 @@ type reader struct {
 	fail     bool
 	n        int // bytes produced by this reader
 	released bool
+}
+
+// next returns stream byte k: the counter, or a component of the tone
+// (amplitude 100 of ±127.5) at the last set rate (default 2.4 MS/s).
+func (d *Device) next() byte {
+	if d.Tone == 0 {
+		return byte(d.k)
+	}
+	rate := float64(d.st.Rate)
+	if rate == 0 {
+		rate = 2_400_000
+	}
+	s, c := math.Sincos(2 * math.Pi * d.Tone * float64(d.k/2) / rate)
+	if d.k%2 == 1 {
+		c = s
+	}
+	return byte(math.Round(127.5 + 100*c))
 }
 
 // Snapshot returns a copy of the recorded state.
@@ -160,7 +179,7 @@ func (r *reader) Read(p []byte) (int, error) {
 	}
 	r.d.mu.Lock()
 	for i := range p {
-		p[i] = byte(r.d.k)
+		p[i] = r.d.next()
 		r.d.k++
 	}
 	r.d.mu.Unlock()
