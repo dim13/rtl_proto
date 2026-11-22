@@ -120,7 +120,7 @@ rtl_remote:
 rtl_proxy:
 
 1. Dials rtl_remote, calls `Info` once.
-2. Listens for rtl_tcp clients (default `127.0.0.1:1234`), one at a
+2. Listens for rtl_tcp clients (default `localhost:1234`, every loopback address it resolves to), one at a
    time, like rtl_tcp.
 3. On client connect: sends the 12-byte `RTL0` greeting built from
    `Info` (tuner type, gain count), opens `Stream`, decodes frames back
@@ -303,7 +303,7 @@ and no authentication, like rtl_tcp:
 
 ```
 rtl_remote [-a :7373] [-f 100e6 -s 2048000 -g 0 -P 0] [-d]
-rtl_proxy  [-a 127.0.0.1:1234] [-min-bits 2 -max-bits 8] [-d] [host[:7373]]
+rtl_proxy  [-a localhost:1234] [-min-bits 2 -max-bits 8] [-d] [host[:7373]]
 ```
 
 `-d` logs received commands, as in rtl_tcp. `-min-bits 8` forces

@@ -32,6 +32,42 @@ func remoteAddr(s string) string {
 	return net.JoinHostPort(strings.Trim(s, "[]"), strconv.Itoa(discovery.Port))
 }
 
+// listen listens on every address a host name resolves to, on one
+// port: "localhost" may resolve to ::1 first, and some clients try only
+// the first address.
+func listen(addr string) ([]net.Listener, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	if host == "" || net.ParseIP(host) != nil {
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		return []net.Listener{l}, nil
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil, err
+	}
+	var ls []net.Listener
+	for _, ip := range ips {
+		l, err := net.Listen("tcp", net.JoinHostPort(ip.String(), port))
+		if err != nil {
+			slog.Warn("listen", "ip", ip, "err", err)
+			continue
+		}
+		ls = append(ls, l)
+		// Port 0: the remaining addresses take the port just picked.
+		_, port, _ = net.SplitHostPort(l.Addr().String())
+	}
+	if len(ls) == 0 {
+		return nil, fmt.Errorf("no address to listen on for %s", host)
+	}
+	return ls, nil
+}
+
 // findRemote returns the address given as argument, or else asks the
 // local network.
 func findRemote(arg string) (string, error) {
@@ -49,7 +85,7 @@ func findRemote(arg string) (string, error) {
 
 func main() {
 	var (
-		addr    = flag.String("a", "127.0.0.1:1234", "rtl_tcp listen address")
+		addr    = flag.String("a", "localhost:1234", "rtl_tcp listen address")
 		minBits = flag.Uint("min-bits", 2, "lowest bits per sample component, 1..8")
 		maxBits = flag.Uint("max-bits", 8, "highest bits per sample component, 1..8")
 		debug   = flag.Bool("d", false, "log received commands and stream stats")
@@ -101,16 +137,25 @@ func main() {
 		MaxBits: uint32(*maxBits),
 	})
 
-	l, err := net.Listen("tcp", *addr)
+	ls, err := listen(*addr)
 	if err != nil {
 		log.Fatal("listen: ", err)
 	}
-	slog.Info("listening", "addr", l.Addr(), "remote", raddr)
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			log.Fatal("accept: ", err)
-		}
+	conns := make(chan net.Conn)
+	for _, l := range ls {
+		slog.Info("listening", "addr", l.Addr(), "remote", raddr)
+		go func() {
+			for {
+				conn, err := l.Accept()
+				if err != nil {
+					log.Fatal("accept: ", err)
+				}
+				conns <- conn
+			}
+		}()
+	}
+	// One client at a time, like rtl_tcp; others wait.
+	for conn := range conns {
 		slog.Info("client", "addr", conn.RemoteAddr())
 		if err := p.Serve(context.Background(), conn); err != nil {
 			slog.Error("session", "err", err)
