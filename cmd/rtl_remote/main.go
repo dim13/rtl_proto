@@ -58,7 +58,7 @@ func abs(x float64) float64 {
 
 func main() {
 	var (
-		addr  = flag.String("a", "127.0.0.1:7373", "listen address")
+		addr  = flag.String("a", ":7373", "listen address")
 		freq  = flag.Float64("f", 100e6, "frequency in Hz")
 		rate  = flag.Uint("s", 2_048_000, "sample rate in Hz")
 		gain  = flag.Float64("g", 0, "gain in dB, 0 for auto")

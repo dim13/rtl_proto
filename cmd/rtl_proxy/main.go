@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -20,9 +21,20 @@ import (
 	pb "github.com/dim13/rtl_proto/rtlprotov1"
 )
 
+// defaultPort is rtl_remote's default listen port.
+const defaultPort = "7373"
+
+// remoteAddr adds the default port to a bare host.
+func remoteAddr(s string) string {
+	if _, _, err := net.SplitHostPort(s); err == nil {
+		return s
+	}
+	return net.JoinHostPort(strings.Trim(s, "[]"), defaultPort)
+}
+
 func main() {
 	var (
-		raddr   = flag.String("r", "", "remote address (required)")
+		raddr   = flag.String("r", "", "remote host[:port] (required, default port "+defaultPort+")")
 		addr    = flag.String("a", "127.0.0.1:1234", "rtl_tcp listen address")
 		minBits = flag.Uint("min-bits", 2, "lowest bits per sample component, 1..8")
 		maxBits = flag.Uint("max-bits", 8, "highest bits per sample component, 1..8")
@@ -42,6 +54,7 @@ func main() {
 	slog.SetDefault(slog.New(h))
 	slog.SetLogLoggerLevel(slog.LevelError)
 
+	*raddr = remoteAddr(*raddr)
 	cc, err := grpc.NewClient(*raddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithInitialWindowSize(remote.Window),

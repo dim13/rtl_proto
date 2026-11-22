@@ -293,8 +293,8 @@ The target is a trusted local network, so the user chose no encryption
 and no authentication, like rtl_tcp:
 
 - Plaintext gRPC (`insecure.NewCredentials()`).
-- rtl_remote listens on `127.0.0.1` unless an address is given
-  explicitly, like rtl_tcp, so exposing it is a deliberate choice.
+- rtl_remote listens on all interfaces (`:7373`) by default: serving
+  the network is its only job. Restrict it with `-a` if needed.
 - Accepted risk: anyone who can reach the port can listen, retune, and
   switch the bias tee (DC onto the antenna). Use network-level access
   control or an SSH tunnel if the network is not trusted.
@@ -302,8 +302,8 @@ and no authentication, like rtl_tcp:
 ## Command lines
 
 ```
-rtl_remote -a 0.0.0.0:7373 [-f 100e6 -s 2048000 -g 0 -P 0] [-d]
-rtl_proxy  -r nuc:7373 [-a 127.0.0.1:1234] [-min-bits 2 -max-bits 8] [-d]
+rtl_remote [-a :7373] [-f 100e6 -s 2048000 -g 0 -P 0] [-d]
+rtl_proxy  -r nuc[:7373] [-a 127.0.0.1:1234] [-min-bits 2 -max-bits 8] [-d]
 ```
 
 `-d` logs received commands, as in rtl_tcp. `-min-bits 8` forces
@@ -350,5 +350,6 @@ Correct any of these:
 - A new `Stream` takes over an active one (old one ends with
   `Aborted`) instead of being refused as busy.
 - Proxy reconnects transparently and re-applies settings.
-- Remote defaults to loopback; exposing it needs an explicit address.
+- Remote listens on all interfaces by default (changed at the user's
+  request); the proxy adds port 7373 to a bare host.
 - Port 7373 as default for rtl_remote.
